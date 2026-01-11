@@ -14,8 +14,14 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const toggleMode = () =>
+  const toggleMode = () => {
     setMode((m) => (m === "login" ? "signup" : "login"));
+    setEmail("");
+    setPassword("");
+    setError("");
+    setLoading(false);
+    };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +71,10 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError("");
+              }}
               required
             />
           </label>
@@ -77,7 +86,10 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
               type="password"
               placeholder="••••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               required
             />
           </label>
