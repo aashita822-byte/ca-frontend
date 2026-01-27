@@ -86,6 +86,23 @@
   padding: 8px 16px;
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s;
 }
+/* Auto-growing textarea for long questions */
+.chat-textarea {
+  resize: none;
+  overflow: hidden;
+  min-height: 42px;
+  max-height: 180px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Mobile optimisation */
+@media (max-width: 640px) {
+  .chat-textarea {
+    max-height: 240px;
+    font-size: 15px;
+  }
+}
 
 .btn:active {
   transform: translateY(1px);
