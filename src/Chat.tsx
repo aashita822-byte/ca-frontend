@@ -545,14 +545,25 @@ const Chat: React.FC = () => {
       </div>
 
       <div className="chat-input-bar" role="search" aria-label="Ask question">
-        <input
-          className="chat-input"
+        <textarea
+          className="chat-input chat-textarea"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Type your CA question here… (e.g. 'Explain Ind AS 7 briefly')"
+          onChange={(e) => {
+            setInput(e.target.value);
+            e.currentTarget.style.height = "auto";
+            e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          placeholder="Type your CA question here… (Shift + Enter for new line)"
           aria-label="Question input"
+          rows={1}
         />
+
         {sttSupported && (
           <button
             type="button"
