@@ -2,6 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import api from "./api";
 import "./App.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Source = {
   id?: string;
@@ -409,7 +411,12 @@ const Chat: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="chat-bubble-content">{m.content}</div>
+                  <div className="chat-bubble-content markdown-body">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+                  </div>
+
                 )}
 
                 <div className="chat-bubble-footer">
