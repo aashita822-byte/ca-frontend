@@ -230,9 +230,9 @@ const Chat: React.FC = () => {
       setMessages((msgs) => [...msgs, assistantMsg]);
       // auto-play the answer for the newly added assistant message
       // its index will be messages.length (since userMsg was appended then assistant appended)
-      const newIndex = messages.length; // current messages length; assistant will be at this index
-      // slight delay to ensure rendering
-      setTimeout(() => speakStart(displayAnswer, newIndex), 150);
+      // const newIndex = messages.length; // current messages length; assistant will be at this index
+      // // slight delay to ensure rendering
+      // setTimeout(() => speakStart(displayAnswer, newIndex), 150);
     } catch (e: any) {
       const detail = e?.response?.data?.detail || e?.message || "Sorry, I couldn't process that question. Please try again in a moment.";
       setMessages((msgs) => [
@@ -305,7 +305,7 @@ const Chat: React.FC = () => {
     >
       <div className="chat-card-header">
         <div className="header-left">
-          <h2 className="chat-title">CA Tutor — Ask your CA doubts</h2>
+          <h2 className="chat-title">CA - chatbot</h2>
           <p className="chat-subtitle">
             Grounded answers from study materials — concise, exam-focused.
           </p>
@@ -451,20 +451,20 @@ const Chat: React.FC = () => {
                       >
                         {openSources[i] ? "Hide sources" : "Sources"}
                       </button>
-                      <button
+                      {/* <button
                         className="action-btn"
                         onClick={() => handleCopy(i, m.content)}
                         title={copiedIndex === i ? "Copied" : "Copy"}
                       >
                         {copiedIndex === i ? "Copied" : "Copy"}
-                      </button>
-                      <button
+                      </button> */}
+                      {/* <button
                         className="action-btn"
                         onClick={regenerateLast}
                         title="Regenerate"
                       >
                         Regenerate
-                      </button>
+                      </button> */}
                     </div>
                   )}
                 </div>
