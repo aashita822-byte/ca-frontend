@@ -13,12 +13,20 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [caLevel, setCaLevel] = useState("");
+  const [caAttempt, setCaAttempt] = useState("");
 
   const toggleMode = () => {
     setMode((m) => (m === "login" ? "signup" : "login"));
     setEmail("");
     setPassword("");
     setError("");
+    setName("");
+    setPhone("");
+    setCaLevel("");
+    setCaAttempt("");
     setLoading(false);
     };
 
@@ -29,7 +37,18 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
     setLoading(true);
     try {
       const endpoint = mode === "login" ? "/auth/login" : "/auth/signup";
-      const payload: any = { email, password };
+      // const payload: any = { email, password };
+      const payload: any =
+        mode === "login"
+          ? { email, password }
+          : {
+              email,
+              password,
+              name,
+              phone,
+              ca_level: caLevel,
+              ca_attempt: Number(caAttempt),
+            };
 
       const res = await api.post(endpoint, payload);
       localStorage.setItem("token", res.data.access_token);
@@ -64,6 +83,7 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          
           <label className="field">
             <span className="field-label">Email</span>
             <input
@@ -78,6 +98,61 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
               required
             />
           </label>
+          {mode === "signup" && (
+          <>
+            <label className="field">
+              <span className="field-label">Full Name</span>
+              <input
+                className="field-input"
+                type="text"
+                placeholder="Your full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span className="field-label">Phone Number</span>
+              <input
+                className="field-input"
+                type="tel"
+                placeholder="10-digit mobile number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </label>
+
+            <label className="field">
+              <span className="field-label">CA Level</span>
+              <select
+                className="field-input"
+                value={caLevel}
+                onChange={(e) => setCaLevel(e.target.value)}
+                required
+              >
+                <option value="">Select level</option>
+                <option value="Foundation">Foundation</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Final">Final</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span className="field-label">CA Attempt</span>
+              <input
+                className="field-input"
+                type="number"
+                min={1}
+                placeholder="Attempt number (e.g. 1)"
+                value={caAttempt}
+                onChange={(e) => setCaAttempt(e.target.value)}
+                required
+              />
+            </label>
+          </>
+        )}
 
           <label className="field">
             <span className="field-label">Password</span>
