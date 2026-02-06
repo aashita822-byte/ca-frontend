@@ -886,3 +886,20 @@
   .chat-input-bar { padding: 10px; }
   .chat-title { font-size: 17px; }
 }
+/* 🔒 FORCE assistant messages to LEFT align */
+.chat-bubble-row-assistant {
+  justify-content: flex-start !important;
+}
+
+.chat-bubble-row-assistant .chat-bubble {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  text-align: left !important;
+}
+
+/* 🔒 Keep user messages on RIGHT */
+.chat-bubble-row-user .chat-bubble {
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  text-align: left;
+}
