@@ -61,7 +61,7 @@ const AdminUpload: React.FC = () => {
 
     try {
       setLoading(true);
-      await api.post("/admin/upload_pdf", formData);
+      await api.post("/admin/materials/upload", formData);
       alert("Upload successful!");
       setFile(null);
       setChapter("");
