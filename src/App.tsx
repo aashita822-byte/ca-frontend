@@ -1,23 +1,27 @@
-// src/App.tsx
 import React, { useEffect, useState } from "react";
 import Auth from "./Auth";
 import Chat from "./Chat";
-import AdminPanel from "./AdminPanel";
+import AdminDashboard from "./AdminDashboard";
+import AdminUpload from "./AdminUpload";
 import api from "./api";
 import "./App.css";
 
 type Role = "student" | "admin" | null;
+type AdminView = "dashboard" | "upload" | "chat";
 
 const App: React.FC = () => {
   const [role, setRole] = useState<Role>(null);
   const [checking, setChecking] = useState(true);
+  const [adminView, setAdminView] = useState<AdminView>("dashboard");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) {
       setChecking(false);
       return;
     }
+
     api
       .get("/auth/me")
       .then((res) => {
@@ -58,14 +62,15 @@ const App: React.FC = () => {
 
   return (
     <div className="app-root app-bg">
-      {/* Top navigation */}
+      {/* Header */}
       <header className="app-header">
         <div className="app-header-left">
           <div className="app-logo">CA RAG Tutor</div>
           <div className="app-subtitle">
-            Smart Q&amp;A assistant for CA students
+            Smart Q&A assistant for CA students
           </div>
         </div>
+
         <div className="app-header-right">
           <span className="pill pill-ghost">
             Role: <strong>{role.toUpperCase()}</strong>
@@ -76,15 +81,61 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Main Layout */}
       <div className="app-main-layout">
         {role === "admin" && (
           <aside className="app-sidebar">
-            <AdminPanel />
+            <div
+              className="admin-nav"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+              }}
+            >
+              <button
+                className={`btn ${
+                  adminView === "dashboard" ? "btn-primary" : "btn-ghost"
+                }`}
+                onClick={() => setAdminView("dashboard")}
+              >
+                📊 Dashboard
+              </button>
+
+              <button
+                className={`btn ${
+                  adminView === "upload" ? "btn-primary" : "btn-ghost"
+                }`}
+                onClick={() => setAdminView("upload")}
+              >
+                📚 Upload Materials
+              </button>
+
+              <button
+                className={`btn ${
+                  adminView === "chat" ? "btn-primary" : "btn-ghost"
+                }`}
+                onClick={() => setAdminView("chat")}
+              >
+                💬 Chat
+              </button>
+            </div>
           </aside>
         )}
+
+        {/* Main Content */}
         <main className="app-main">
-          <Chat />
+          {role === "admin" ? (
+            adminView === "dashboard" ? (
+              <AdminDashboard />
+            ) : adminView === "upload" ? (
+              <AdminUpload />
+            ) : (
+              <Chat />
+            )
+          ) : (
+            <Chat />
+          )}
         </main>
       </div>
     </div>
