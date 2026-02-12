@@ -46,67 +46,87 @@ const AdminDashboard: React.FC = () => {
   const pending = students.filter((s) => s.status === "pending");
   const approved = students.filter((s) => s.status === "approved");
 
-  if (loading) return <div className="admin-loading">Loading dashboard...</div>;
+  if (loading)
+    return (
+      <div className="admin-loading">
+        <div className="loader" />
+        <p>Loading dashboard...</p>
+      </div>
+    );
 
   return (
-    <div className="admin-dashboard">
+    <div className="admin-dashboard-container">
 
-      <div className="admin-header">
-        <h1>Admin Dashboard</h1>
-        <p>Student Approval Management</p>
+      {/* HEADER */}
+      <div className="admin-dashboard-header">
+        <div>
+          <h1 className="admin-dashboard-title">Admin Control Center</h1>
+          <p className="admin-dashboard-subtitle">
+            Manage student approvals and monitor platform access
+          </p>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="admin-stats">
-
-        <div className="stat-card total">
+      {/* STATS */}
+      <div className="admin-stats-modern">
+        <div className="stat-card-modern total">
           <div className="stat-number">{students.length}</div>
-          <div className="stat-label"><strong>Total Students</strong></div>
+          <div className="stat-label">Total Students</div>
         </div>
 
-        <div className="stat-card pending">
+        <div className="stat-card-modern pending">
           <div className="stat-number">{pending.length}</div>
-          <div className="stat-label"><strong>Pending Approval</strong></div>
+          <div className="stat-label">Pending Approval</div>
         </div>
 
-        <div className="stat-card approved">
+        <div className="stat-card-modern approved">
           <div className="stat-number">{approved.length}</div>
-          <div className="stat-label"><strong>Approved Students</strong></div>
+          <div className="stat-label">Approved Students</div>
         </div>
-
       </div>
 
-      {/* Pending Section */}
-      <section>
-        <h2 className="section-title strong-title">
-          Pending Students ({pending.length})
-        </h2>
+      {/* PENDING SECTION */}
+      <section className="admin-section">
+        <div className="section-header">
+          <h2>Pending Students</h2>
+          <span className="section-count">{pending.length}</span>
+        </div>
 
         {pending.length === 0 ? (
-          <div className="empty-box">No students awaiting approval</div>
+          <div className="empty-state">
+            🎉 No students awaiting approval
+          </div>
         ) : (
-          <div className="student-grid">
+          <div className="student-grid-modern">
             {pending.map((student) => (
-              <div key={student._id} className="student-card">
+              <div key={student._id} className="student-card-modern">
 
-                <div className="student-header">
-                  <h3>{student.name || "Unnamed Student"}</h3>
-                  <span className="badge pending-badge">Pending</span>
+                <div className="student-card-header">
+                  <div>
+                    <h3>{student.name || "Unnamed Student"}</h3>
+                    <p className="student-email">{student.email}</p>
+                  </div>
+                  <span className="badge-modern pending">Pending</span>
                 </div>
 
-                <p className="student-email">{student.email}</p>
-
-                <div className="student-meta">
-                  {student.ca_level} • Attempt {student.ca_attempt}
+                <div className="student-details">
+                  <div>
+                    <strong>Level:</strong> {student.ca_level}
+                  </div>
+                  <div>
+                    <strong>Attempt:</strong> {student.ca_attempt}
+                  </div>
                 </div>
 
-                <div className="student-actions">
+                <div className="student-actions-modern">
                   <button
-                    className="btn-approve"
+                    className="btn-modern approve"
                     disabled={actionLoading === student._id}
                     onClick={() => approveStudent(student._id)}
                   >
-                    Approve
+                    {actionLoading === student._id
+                      ? "Approving..."
+                      : "Approve Student"}
                   </button>
                 </div>
 
@@ -116,28 +136,39 @@ const AdminDashboard: React.FC = () => {
         )}
       </section>
 
-      {/* Approved Section */}
-      <section style={{ marginTop: 50 }}>
-        <h2 className="section-title strong-title">
-          Approved Students ({approved.length})
-        </h2>
+      {/* APPROVED SECTION */}
+      <section className="admin-section">
+        <div className="section-header">
+          <h2>Approved Students</h2>
+          <span className="section-count">{approved.length}</span>
+        </div>
 
         {approved.length === 0 ? (
-          <div className="empty-box">No approved students yet</div>
+          <div className="empty-state">
+            No approved students yet
+          </div>
         ) : (
-          <div className="student-grid">
+          <div className="student-grid-modern">
             {approved.map((student) => (
-              <div key={student._id} className="student-card approved-card">
-
-                <div className="student-header">
-                  <h3>{student.name || "Unnamed Student"}</h3>
-                  <span className="badge approved-badge">Approved</span>
+              <div
+                key={student._id}
+                className="student-card-modern approved-card"
+              >
+                <div className="student-card-header">
+                  <div>
+                    <h3>{student.name || "Unnamed Student"}</h3>
+                    <p className="student-email">{student.email}</p>
+                  </div>
+                  <span className="badge-modern approved">Approved</span>
                 </div>
 
-                <p className="student-email">{student.email}</p>
-
-                <div className="student-meta">
-                  {student.ca_level} • Attempt {student.ca_attempt}
+                <div className="student-details">
+                  <div>
+                    <strong>Level:</strong> {student.ca_level}
+                  </div>
+                  <div>
+                    <strong>Attempt:</strong> {student.ca_attempt}
+                  </div>
                 </div>
 
               </div>
