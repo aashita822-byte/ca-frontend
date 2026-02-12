@@ -886,6 +886,7 @@
   .chat-input-bar { padding: 10px; }
   .chat-title { font-size: 17px; }
 }
+
 /* 🔒 FORCE assistant messages to LEFT align */
 .chat-bubble-row-assistant {
   justify-content: flex-start !important;
@@ -903,3 +904,108 @@
   margin-right: 0 !important;
   text-align: left;
 }
+.admin-header {
+  margin-bottom: 25px;
+}
+
+.admin-header h1 {
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+
+.admin-header p {
+  color: #6b7280;
+}
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+}
+
+.student-card {
+  transition: all 0.2s ease;
+}
+
+.student-card:hover {
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+.admin-header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.admin-header p {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.stat-number {
+  font-size: 36px;
+  font-weight: 800;
+}
+
+.stat-label {
+  margin-top: 6px;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
+
+.strong-title {
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.student-header h3 {
+  font-weight: 700;
+  font-size: 17px;
+}
+.admin-nav button {
+  width: 100%;
+}
+.admin-upload-card {
+  background: white;
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 40px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-upload-card input,
+.admin-upload-card select {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.admin-upload-card button {
+  background: #4f46e5;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+}
+.app-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-main-layout {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 64px);
+}
+.app-main {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
