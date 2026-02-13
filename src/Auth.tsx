@@ -1,4 +1,3 @@
-// src/Auth.tsx
 import React, { useState } from "react";
 import api from "./api";
 import "./App.css";
@@ -9,36 +8,42 @@ interface Props {
 
 const Auth: React.FC<Props> = ({ onLoggedIn }) => {
   const [mode, setMode] = useState<"login" | "signup">("login");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [caLevel, setCaLevel] = useState("");
   const [caAttempt, setCaAttempt] = useState("");
+
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const toggleMode = () => {
     setMode((m) => (m === "login" ? "signup" : "login"));
     setEmail("");
     setPassword("");
     setError("");
+    setSuccessMessage("");
     setName("");
     setPhone("");
     setCaLevel("");
     setCaAttempt("");
-    setLoading(false);
-    };
-
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setError("");
+    setSuccessMessage("");
     setLoading(true);
+
     try {
       const endpoint = mode === "login" ? "/auth/login" : "/auth/signup";
-      // const payload: any = { email, password };
-      const payload: any =
+
+      const payload =
         mode === "login"
           ? { email, password }
           : {
@@ -51,83 +56,76 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
             };
 
       const res = await api.post(endpoint, payload);
-      localStorage.setItem("token", res.data.access_token);
 
+      // ✅ Signup flow (no token)
+      if (mode === "signup") {
+        setSuccessMessage(
+          "Signup successful ✅ Sent for admin approval. Please login after approval."
+        );
+        setMode("login");
+        return;
+      }
+
+      // ✅ Login flow
+      localStorage.setItem("token", res.data.access_token);
       const me = await api.get("/auth/me");
       onLoggedIn(me.data.role);
-      setEmail("");
-      setPassword("");
+
     } catch (err: any) {
-      const msg =
+      setError(
         err?.response?.data?.detail ||
-        err?.message ||
-        "Something went wrong. Please try again.";
-      setError(msg);
+          "Something went wrong. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="auth-wrapper">
-      <div className="auth-card">
-        <div className="auth-card-header">
-          <h1 className="auth-title">
-            {mode === "login" ? "Welcome back 👋" : "Create your account"}
-          </h1>
-          <p className="auth-subtitle">
+    <div className="auth-page">
+      <div className="auth-card-premium">
+        <div className="auth-top">
+          <div className="logo-circle">CA</div>
+          <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+          <p>
             {mode === "login"
-              ? "Login to access the CA chatbot."
-              : "Sign up to get started."}
+              ? "Login to continue your CA preparation."
+              : "Sign up to start using your CA AI tutor."}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-form">
-          
-          <label className="field">
-            <span className="field-label">Email</span>
-            <input
-              className="field-input"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-              required
-            />
-          </label>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label>Email</label>
+          <input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
           {mode === "signup" && (
-          <>
-            <label className="field">
-              <span className="field-label">Full Name</span>
+            <>
+              <label>Full Name</label>
               <input
-                className="field-input"
                 type="text"
                 placeholder="Your full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
               />
-            </label>
 
-            <label className="field">
-              <span className="field-label">Phone Number</span>
+              <label>Phone Number</label>
               <input
-                className="field-input"
                 type="tel"
                 placeholder="10-digit mobile number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 required
               />
-            </label>
 
-            <label className="field">
-              <span className="field-label">CA Level</span>
+              <label>CA Level</label>
               <select
-                className="field-input"
                 value={caLevel}
                 onChange={(e) => setCaLevel(e.target.value)}
                 required
@@ -137,64 +135,57 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
                 <option value="Intermediate">Intermediate</option>
                 <option value="Final">Final</option>
               </select>
-            </label>
 
-            <label className="field">
-              <span className="field-label">CA Attempt</span>
+              <label>CA Attempt</label>
               <input
-                className="field-input"
                 type="number"
                 min={1}
-                placeholder="Attempt number (e.g. 1)"
                 value={caAttempt}
                 onChange={(e) => setCaAttempt(e.target.value)}
                 required
               />
-            </label>
-          </>
-        )}
+            </>
+          )}
 
-          <label className="field">
-            <span className="field-label">Password</span>
-            <input
-              className="field-input"
-              type="password"
-              placeholder="••••••••••"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError("");
-              }}
-              required
-            />
-          </label>
-
-          {/* role selection removed */}
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
           {error && <div className="auth-error">{error}</div>}
+          {successMessage && (
+            <div className="auth-success">{successMessage}</div>
+          )}
 
-          <button
-            type="submit"
-            className="btn btn-primary auth-submit"
-            disabled={loading}
-          >
+          <button className="auth-btn" disabled={loading}>
             {loading
-              ? "Please wait…"
+              ? "Please wait..."
               : mode === "login"
               ? "Login"
-              : "Create account"}
+              : "Create Account"}
           </button>
         </form>
 
-        <div className="auth-footer">
-          <span>
-            {mode === "login"
-              ? "Don't have an account?"
-              : "Already have an account?"}
-          </span>
-          <button type="button" className="link" onClick={toggleMode}>
-            {mode === "login" ? "Sign up" : "Login"}
-          </button>
+        <div className="auth-switch">
+          {mode === "login" ? (
+            <>
+              Don’t have an account?
+              <button type="button" onClick={toggleMode}>
+                Sign up
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?
+              <button type="button" onClick={toggleMode}>
+                Login
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
