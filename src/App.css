@@ -1444,3 +1444,573 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ===================================
+   CA DASHBOARD — WHITE PREMIUM THEME
+=================================== */
+
+.ca-dashboard {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #111;
+  padding: 32px;
+}
+
+/* ===== HEADER ===== */
+.ca-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.ca-header h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #000;
+}
+
+.ca-header p {
+  color: #666;
+  margin-top: 10px;
+  font-size: 15px;
+}
+
+/* ===== PERFECT CIRCLE ===== */
+.level-circle {
+  width: 460px;
+  height: 460px;
+  margin: auto;
+  border: 1.5px solid #ddd;
+  border-radius: 50%;
+  position: relative;
+  background: #fafafa;
+}
+
+/* LEVEL BUTTONS */
+.level-btn {
+  position: absolute;
+  border-radius: 999px;
+  border: 2px solid #000;
+  background: #000;
+  color: #fff;
+  padding: 14px 26px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+}
+
+/* PREMIUM HOVER */
+.level-btn:hover {
+  background: #fff;
+  color: #000;
+  transform: scale(1.08);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+
+/* POSITIONS */
+.pos-top {
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pos-left {
+  left: -25px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pos-right {
+  right: -25px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pos-center {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* ===== CONTENT ===== */
+.level-content {
+  max-width: 1200px;
+  margin: auto;
+}
+
+.back-btn {
+  margin-bottom: 20px;
+  background: transparent;
+  border: none;
+  color: #000;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.module-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  padding: 20px;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.module-card:hover {
+  border-color: #000;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.open-btn {
+  margin-top: 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #000;
+  background: #000;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.open-btn:hover {
+  background: #fff;
+  color: #000;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 700px) {
+  .level-circle {
+    width: 300px;
+    height: 300px;
+  }
+
+  .level-btn {
+    font-size: 12px;
+    padding: 10px 16px;
+  }
+
+  .ca-header h1 {
+    font-size: 26px;
+  }
+}
+/* TREE UI */
+.premium-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.subject-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.module-toggle {
+  width: 100%;
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: left;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.module-toggle:hover {
+  opacity: 0.85;
+}
+
+.chapter-block {
+  margin-top: 12px;
+  padding-left: 10px;
+}
+
+.pdf-btn {
+  background: #111;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-top: 6px;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.pdf-btn:hover {
+  background: #333;
+}
+
+/* PDF MODAL */
+.pdf-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.pdf-container {
+  width: 90%;
+  height: 90%;
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pdf-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+}
+/* =========================
+   MAIN DASHBOARD
+========================= */
+.ca-dashboard {
+  background: #ffffff;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+/* HEADER */
+.ca-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.ca-header h1 {
+  font-size: 30px;
+  font-weight: 700;
+  color: #111;
+}
+
+.ca-header p {
+  color: #555;
+  margin-top: 6px;
+}
+
+/* =========================
+   TREE STRUCTURE
+========================= */
+.premium-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* SUBJECT CARD */
+.subject-card {
+  background: #fff;
+  border: 2px solid #111;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+  transition: all 0.25s ease;
+}
+
+.subject-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+}
+
+.subject-card h3 {
+  font-size: 22px;
+  margin-bottom: 14px;
+  color: #111;
+}
+
+/* MODULE BLOCK */
+.module-block {
+  margin-top: 12px;
+  background: #f5f5f5;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #e2e2e2;
+}
+
+/* MODULE BUTTON */
+.module-toggle {
+  width: 100%;
+  background: #111;
+  color: #fff;
+  border: none;
+  padding: 12px 14px;
+  font-size: 20px;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.module-toggle:hover {
+  background: #000;
+  transform: translateX(3px);
+}
+
+/* CHAPTER BLOCK */
+.chapter-block {
+  margin-top: 12px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 12px;
+  border-left: 4px solid #111;
+}
+
+.chapter-block h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #222;
+  font-weight: 600;
+}
+
+/* RESOURCE LIST */
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* PDF BUTTON */
+.pdf-btn {
+  background: #111;
+  color: #fff;
+  border: none;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.25s ease;
+  font-size: 14px;
+}
+
+.pdf-btn:hover {
+  background: #000;
+  transform: translateX(4px) scale(1.01);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.2);
+}
+
+/* =========================
+   PDF MODAL (PREMIUM)
+========================= */
+.pdf-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.pdf-container {
+  width: 92%;
+  height: 92%;
+  background: white;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+}
+
+.pdf-header {
+  padding: 14px 18px;
+  background: #111;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pdf-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+}
+
+/* =========================
+   BACK BUTTON
+========================= */
+.back-btn {
+  background: #111;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: #000;
+  transform: translateY(-1px);
+}
+.subject-card h3 {
+  font-size: 22px;
+  margin-bottom: 14px;
+  color: #111;
+  font-weight: 1000;
+  letter-spacing: 0.3px;
+}
+.module-toggle {
+  width: 100%;
+  background: #2a2a2a;   /* slightly lighter than black */
+  color: #fff;
+  border: none;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.module-toggle:hover {
+  background: #111;
+  transform: translateX(4px);
+}
+.chapter-block h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #068924;   /* softer tone */
+  font-weight: 900;
+}
+.pdf-btn {
+  background: #1a59ed;
+  color: white;
+  border: 1px solid #111;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.25s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pdf-btn:hover {
+  background: #0e9334;  /* subtle difference */
+  border-color: #2f2f2f;
+  transform: translateX(5px) scale(1.02);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+}
+.level-btn {
+  width: 170px;          /* bigger circle */
+  height: 170px;
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.15);
+}
+
+.level-btn:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.25);
+}
+.level-circle {
+  position: relative;
+  width: 520px;   /* increase */
+  height: 520px;
+  margin: 40px auto;
+}
+.pos-top {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.pos-left {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pos-right {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.pos-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+@media (max-width: 768px) {
+  .level-circle {
+    width: 320px;
+    height: 320px;
+  }
+
+  .level-btn {
+    width: 110px;
+    height: 110px;
+    font-size: 14px;
+  }
+}
+/* =========================
+   CHAT INPUT FONT FIX
+========================= */
+.chat-textarea {
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.2px;
+}
+/* =========================
+   CHAT INPUT (SCROLLABLE)
+========================= */
+.chat-textarea {
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+
+  width: 100%;
+  resize: none;
+
+  min-height: 48px;
+  max-height: 140px;   /* 🔥 important */
+  overflow-y: auto;    /* makes it scroll */
+
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  background: #fff;
+}
