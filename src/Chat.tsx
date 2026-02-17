@@ -548,11 +548,15 @@ const Chat: React.FC = () => {
         <textarea
           className="chat-input chat-textarea"
           value={input}
+          // onChange={(e) => {
+          //   setInput(e.target.value);
+          //   e.currentTarget.style.height = "auto";
+          //   e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+          // }}
           onChange={(e) => {
             setInput(e.target.value);
-            e.currentTarget.style.height = "auto";
-            e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-          }}
+           }}
+
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
