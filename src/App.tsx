@@ -3,11 +3,12 @@ import Auth from "./Auth";
 import Chat from "./Chat";
 import AdminDashboard from "./AdminDashboard";
 import AdminUpload from "./AdminUpload";
+import CADashboard from "./CADashboard";
 import api from "./api";
 import "./App.css";
 
 type Role = "student" | "admin" | null;
-type AdminView = "dashboard" | "upload" | "chat";
+type AdminView = "dashboard" | "upload" | "chat" | "study";
 
 const App: React.FC = () => {
   const [role, setRole] = useState<Role>(null);
@@ -39,6 +40,7 @@ const App: React.FC = () => {
     setRole(null);
   };
 
+  // ========= Loading =========
   if (checking) {
     return (
       <div className="app-full-center app-bg">
@@ -48,21 +50,18 @@ const App: React.FC = () => {
     );
   }
 
+  // ========= Auth =========
   if (!role) {
     return (
       <div className="app-bg">
-        <Auth
-          onLoggedIn={(r) => {
-            setRole(r);
-          }}
-        />
+        <Auth onLoggedIn={(r) => setRole(r)} />
       </div>
     );
   }
 
   return (
     <div className="app-root app-bg">
-      {/* Header */}
+      {/* ===== Header ===== */}
       <header className="app-header">
         <div className="app-header-left">
           <div className="app-logo">CA RAG Tutor</div>
@@ -81,8 +80,10 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
+      {/* ===== Main Layout ===== */}
       <div className="app-main-layout">
+
+        {/* ===== Sidebar ===== */}
         {role === "admin" && (
           <aside className="app-sidebar">
             <div
@@ -113,6 +114,15 @@ const App: React.FC = () => {
 
               <button
                 className={`btn ${
+                  adminView === "study" ? "btn-primary" : "btn-ghost"
+                }`}
+                onClick={() => setAdminView("study")}
+              >
+                🎬 Study Dashboard
+              </button>
+
+              <button
+                className={`btn ${
                   adminView === "chat" ? "btn-primary" : "btn-ghost"
                 }`}
                 onClick={() => setAdminView("chat")}
@@ -123,18 +133,21 @@ const App: React.FC = () => {
           </aside>
         )}
 
-        {/* Main Content */}
+        {/* ===== Main Content ===== */}
         <main className="app-main">
           {role === "admin" ? (
             adminView === "dashboard" ? (
               <AdminDashboard />
             ) : adminView === "upload" ? (
               <AdminUpload />
+            ) : adminView === "study" ? (
+              <CADashboard />
             ) : (
               <Chat />
             )
           ) : (
-            <Chat />
+            // Students directly see Study Dashboard (best UX)
+            <CADashboard />
           )}
         </main>
       </div>
