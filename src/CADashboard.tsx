@@ -3,6 +3,8 @@ import api from "./api";
 import "./App.css";
 
 type Level = "Foundation" | "Intermediate" | "Final" | "Others";
+const DEFAULT_VIDEO_URL =
+  "https://youtu.be/76UUB7Vv8s8?si=7NlDSfqlON-SVpIi";
 
 const CADashboard: React.FC = () => {
   const [selected, setSelected] = useState<Level | null>(null);
@@ -101,13 +103,58 @@ const CADashboard: React.FC = () => {
                                 <div className="resource-list">
                                   {tree[selected][subject][module][chapter].map(
                                     (item: any) => (
-                                      <button
-                                        key={item._id}
-                                        className="pdf-btn"
-                                        onClick={() => setViewer(item)}
-                                      >
-                                        📄 {item.title}
-                                      </button>
+                                      <div key={item._id} className="pdf-hover-wrapper">
+                                        <button
+                                          className="pdf-btn"
+                                          onClick={() => setViewer(item)}
+                                        >
+                                          📄 {item.title}
+                                        </button>
+
+                                        {/* HOVER ACTIONS (BOTTOM LAYER) */}
+                                        <div className="pdf-hover-actions">
+
+                                          {/* Ask Chatbot */}
+                                          <button
+                                            className="hover-action-btn"
+                                            onClick={() =>
+                                              window.open(
+                                                `/chat?query=${encodeURIComponent(item.title)}`,
+                                                "_blank"
+                                              )
+                                            }
+                                          >
+                                            🤖 Ask Chatbot
+                                          </button>
+
+                                          {/* Watch Video */}
+                                          {/* {item.video_url && item.video_url.trim() !== "" && ( */}
+                                          <button
+                                            className="hover-action-btn"
+                                            onClick={() =>
+                                              window.open(
+                                                item.video_url || DEFAULT_VIDEO_URL,
+                                                "_blank"
+                                              )
+                                            }
+                                          >
+                                            ▶ Watch Video
+                                          </button>
+
+                                        
+
+                                          {/* Open PDF */}
+                                          <button
+                                            className="hover-action-btn"
+                                            onClick={() => setViewer(item)}
+                                          >
+                                            📖 Open PDF
+                                          </button>
+
+                                        </div>
+                                      </div>
+
+
                                     )
                                   )}
                                 </div>
