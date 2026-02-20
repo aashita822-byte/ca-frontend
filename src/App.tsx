@@ -147,7 +147,7 @@ const App: React.FC = () => {
             )
           ) : (
             // Students directly see Study Dashboard (best UX)
-            <CADashboard />
+            <Chat />
           )}
         </main>
       </div>
