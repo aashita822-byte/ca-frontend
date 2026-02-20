@@ -144,12 +144,12 @@ const CADashboard: React.FC = () => {
                                         
 
                                           {/* Open PDF */}
-                                          <button
+                                          {/* <button
                                             className="hover-action-btn"
                                             onClick={() => setViewer(item)}
                                           >
                                             📖 Open PDF
-                                          </button>
+                                          </button> */}
 
                                         </div>
                                       </div>
