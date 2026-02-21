@@ -117,12 +117,7 @@ const CADashboard: React.FC = () => {
                                           {/* Ask Chatbot */}
                                           <button
                                             className="hover-action-btn"
-                                            onClick={() =>
-                                              window.open(
-                                                `/chat`,
-                                                "_blank"
-                                              )
-                                            }
+                                            onClick={() => (window as any).goChat()}
                                           >
                                             🤖 Ask Chatbot
                                           </button>
