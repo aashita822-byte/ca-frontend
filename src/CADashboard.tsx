@@ -119,7 +119,7 @@ const CADashboard: React.FC = () => {
                                             className="hover-action-btn"
                                             onClick={() =>
                                               window.open(
-                                                `/chat?query=${encodeURIComponent(item.title)}`,
+                                                `/chat`,
                                                 "_blank"
                                               )
                                             }
