@@ -14,6 +14,7 @@ const App: React.FC = () => {
   const [role, setRole] = useState<Role>(null);
   const [checking, setChecking] = useState(true);
   const [adminView, setAdminView] = useState<AdminView>("dashboard");
+  (window as any).goChat = () => setAdminView("chat"); 
 
   useEffect(() => {
     const token = localStorage.getItem("token");
