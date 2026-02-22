@@ -85,7 +85,7 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
     <div className="auth-page">
       <div className="auth-card-premium">
         <div className="auth-top">
-          <div className="logo-circle">CA</div>
+          <div className="logo-circle">DHVANI</div>
           <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
           <p>
             {mode === "login"
