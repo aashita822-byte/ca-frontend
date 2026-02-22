@@ -305,7 +305,7 @@ const Chat: React.FC = () => {
     >
       <div className="chat-card-header">
         <div className="header-left">
-          <h2 className="chat-title">CA - chatbot</h2>
+          <h2 className="chat-title">DHVANI - chatbot</h2>
           <p className="chat-subtitle">
             Grounded answers from study materials — concise, exam-focused.
           </p>
