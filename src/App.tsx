@@ -65,7 +65,7 @@ const App: React.FC = () => {
       {/* ===== Header ===== */}
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-logo">CA RAG Tutor</div>
+          <div className="app-logo">CA Tutor</div>
           <div className="app-subtitle">
             Smart Q&A assistant for CA students
           </div>
