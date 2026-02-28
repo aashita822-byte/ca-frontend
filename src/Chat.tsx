@@ -1,10 +1,13 @@
 // src/Chat.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import api from "./api";
 import "./App.css";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+/* ============================================================
+   TYPES
+   ============================================================ */
 type Source = {
   id?: string;
   score?: number;
@@ -27,244 +30,177 @@ type Msg = {
   sources?: Source[];
 };
 
-const isDialogue = (text: string) => {
-  if (!text) return false;
-  return /(^|\n)\s*User\s*A\s*:/i.test(text) || /(^|\n)\s*User\s*B\s*:/i.test(text);
-};
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const isDialogue = (text: string) =>
+  /(^|\n)\s*User\s*[AB]\s*:/i.test(text);
 
 const parseDialogueLines = (text: string) => {
-  const lines = text.split(/\r?\n/).map((ln) => ln.trim()).filter(Boolean);
-  const parsed: Array<{ speaker: "A" | "B" | null; text: string }> = [];
-  for (const ln of lines) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return lines.map((ln) => {
     const mA = ln.match(/^\s*User\s*A\s*:\s*(.*)$/i);
     const mB = ln.match(/^\s*User\s*B\s*:\s*(.*)$/i);
-    if (mA) {
-      parsed.push({ speaker: "A", text: mA[1].trim() });
-    } else if (mB) {
-      parsed.push({ speaker: "B", text: mB[1].trim() });
-    } else {
-      parsed.push({ speaker: null, text: ln });
-    }
-  }
-  return parsed;
+    if (mA) return { speaker: "A" as const, text: mA[1].trim() };
+    if (mB) return { speaker: "B" as const, text: mB[1].trim() };
+    return { speaker: null, text: ln };
+  });
 };
 
 const stripSourcesText = (answer: string) => {
-  if (!answer) return { body: "", sourcesText: "" };
   const re = /(?:Sources\s*Used\s*:)/i;
   const split = answer.split(re);
-  if (split.length <= 1) {
-    return { body: answer.trim(), sourcesText: "" };
-  }
-  const body = split[0].trim();
-  const sourcesText = split.slice(1).join("Sources Used:").trim();
-  return { body, sourcesText };
+  return split.length <= 1
+    ? { body: answer.trim(), sourcesText: "" }
+    : { body: split[0].trim(), sourcesText: split.slice(1).join("").trim() };
 };
 
+const SUGGESTIONS = [
+  "What is the Companies Act, 2013?",
+  "Explain AS 9 – Revenue Recognition",
+  "What are GST input tax credits?",
+  "Describe audit procedures for inventory",
+];
+
+/* ============================================================
+   COMPONENT
+   ============================================================ */
 const Chat: React.FC = () => {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages]         = useState<Msg[]>([]);
+  const [input, setInput]               = useState("");
+  const [loading, setLoading]           = useState(false);
   const [sttSupported, setSttSupported] = useState(false);
-  const [rec, setRec] = useState<any>(null);
-  const [mode, setMode] = useState<"qa" | "discussion">("qa");
-
-  const [openSources, setOpenSources] = useState<Record<number, boolean>>({});
+  const [rec, setRec]                   = useState<any>(null);
+  const [mode, setMode]                 = useState<"qa" | "discussion">("qa");
+  const [openSources, setOpenSources]   = useState<Record<number, boolean>>({});
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [isPaused, setIsPaused]         = useState(false);
   const [scrollVisible, setScrollVisible] = useState(false);
-  const chatRef = useRef<HTMLDivElement | null>(null);
+  const [copiedIndex, setCopiedIndex]   = useState<number | null>(null);
 
+  const utterRef  = useRef<SpeechSynthesisUtterance | null>(null);
+  const chatRef   = useRef<HTMLDivElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  /* ---- Auto-scroll to bottom on new messages ---- */
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  /* ---- Scroll visibility button ---- */
   useEffect(() => {
     const el = chatRef.current;
     if (!el) return;
     const onScroll = () => {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
-      setScrollVisible(!nearBottom);
+      setScrollVisible(el.scrollHeight - el.scrollTop - el.clientHeight > 120);
     };
     el.addEventListener("scroll", onScroll);
     onScroll();
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* ---- Speech-to-text setup ---- */
   useEffect(() => {
-    const SR: any =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-    if (SR) {
-      const recognition = new SR();
-      recognition.lang = "en-IN";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setInput(text);
-      };
-      setRec(recognition);
-      setSttSupported(true);
-    }
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognition.lang = "en-IN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e: any) => setInput(e.results[0][0].transcript);
+    setRec(recognition);
+    setSttSupported(true);
   }, []);
 
-  // start speaking a text and mark which message index it's for
+  /* ---- Auto-resize textarea ---- */
+  const autoResize = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 130)}px`;
+  }, []);
+
+  /* ============================================================
+     SPEECH SYNTHESIS
+     ============================================================ */
   const speakStart = (text: string, idx: number) => {
-    if (!text || !("speechSynthesis" in window)) return;
-    // stop any existing speech
+    if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    utterRef.current = new SpeechSynthesisUtterance(text);
-    utterRef.current.lang = "en-IN";
-    utterRef.current.onend = () => {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = "en-IN";
+    utt.onend = utt.onerror = () => {
       setSpeakingIndex(null);
       setIsPaused(false);
       utterRef.current = null;
     };
-    utterRef.current.onerror = () => {
-      setSpeakingIndex(null);
-      setIsPaused(false);
-      utterRef.current = null;
-    };
+    utterRef.current = utt;
     setSpeakingIndex(idx);
     setIsPaused(false);
-    window.speechSynthesis.speak(utterRef.current);
+    window.speechSynthesis.speak(utt);
   };
 
-  // pause the current speech (if any)
-  const pauseSpeech = () => {
-    if (!("speechSynthesis" in window)) return;
-    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-      window.speechSynthesis.pause();
-      setIsPaused(true);
-    }
-  };
-
-  // resume if paused
-  const resumeSpeech = () => {
-    if (!("speechSynthesis" in window)) return;
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
-      setIsPaused(false);
-    }
-  };
-
-  // stop and clear utterance
-  const stopSpeech = () => {
-    if (!("speechSynthesis" in window)) return;
+  const pauseSpeech  = () => { window.speechSynthesis.pause();  setIsPaused(true);  };
+  const resumeSpeech = () => { window.speechSynthesis.resume(); setIsPaused(false); };
+  const stopSpeech   = () => {
     window.speechSynthesis.cancel();
     setSpeakingIndex(null);
     setIsPaused(false);
     utterRef.current = null;
   };
 
-  // toggle speak/pause/resume for a specific message index
   const handleSpeakToggle = (idx: number, text: string) => {
-    // if nothing is active, start this one
-    if (speakingIndex === null) {
-      speakStart(text, idx);
-      return;
-    }
-
-    // if this message is currently active:
+    if (speakingIndex === null) { speakStart(text, idx); return; }
     if (speakingIndex === idx) {
-      if (window.speechSynthesis.paused) {
-        resumeSpeech();
-      } else if (window.speechSynthesis.speaking) {
-        pauseSpeech();
-      } else {
-        // not speaking (maybe ended) => restart
-        speakStart(text, idx);
-      }
+      window.speechSynthesis.paused ? resumeSpeech() : pauseSpeech();
       return;
     }
-
-    // if some other message is speaking, stop it and start this one
     stopSpeech();
     speakStart(text, idx);
   };
 
-  const toggleSource = (idx: number) => {
-    setOpenSources((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  const speakLabel = (idx: number) => {
+    if (speakingIndex !== idx) return "🔊 Speak";
+    return isPaused ? "▶ Resume" : "⏸ Pause";
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const content = input.trim();
-    const now = new Date().toISOString();
+  /* ============================================================
+     CHAT ACTIONS
+     ============================================================ */
+  const sendMessage = async (overrideInput?: string) => {
+    const content = (overrideInput ?? input).trim();
+    if (!content || loading) return;
 
+    const now = new Date().toISOString();
     const userMsg: Msg = { role: "user", content, ts: now };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput("");
+
+    // Reset textarea height
+    if (textareaRef.current) textareaRef.current.style.height = "44px";
+
     setLoading(true);
-
     try {
-      const historyForBackend = newMessages
-        .slice(-6)
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      const res = await api.post("/chat", {
-        message: content,
-        history: historyForBackend,
-        mode,
-      });
+      const history = newMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      const res = await api.post("/chat", { message: content, history, mode });
 
       const rawAnswer = (res.data.answer as string) || "";
       const { body: displayAnswer } = stripSourcesText(rawAnswer);
-      const sources: Source[] = Array.isArray(res.data.sources)
-        ? res.data.sources
-        : [];
+      const sources: Source[] = Array.isArray(res.data.sources) ? res.data.sources : [];
 
-      const assistantMsg: Msg = {
-        role: "assistant",
-        content: displayAnswer,
-        ts: new Date().toISOString(),
-        sources,
-      };
-
-      setMessages((msgs) => [...msgs, assistantMsg]);
-      // auto-play the answer for the newly added assistant message
-      // its index will be messages.length (since userMsg was appended then assistant appended)
-      // const newIndex = messages.length; // current messages length; assistant will be at this index
-      // // slight delay to ensure rendering
-      // setTimeout(() => speakStart(displayAnswer, newIndex), 150);
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail || e?.message || "Sorry, I couldn't process that question. Please try again in a moment.";
       setMessages((msgs) => [
         ...msgs,
-        {
-          role: "assistant",
-          content: detail,
-          ts: new Date().toISOString(),
-        },
+        { role: "assistant", content: displayAnswer, ts: new Date().toISOString(), sources },
+      ]);
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail || e?.message || "Sorry, couldn't process that. Please try again.";
+      setMessages((msgs) => [
+        ...msgs,
+        { role: "assistant", content: detail, ts: new Date().toISOString() },
       ]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  const startVoiceInput = () => {
-    if (!rec) {
-      alert("Voice input not supported in this browser.");
-      return;
-    }
-    (window as any).speechSynthesis.cancel();
-    try {
-      rec.start();
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -272,141 +208,121 @@ const Chat: React.FC = () => {
     setMessages([]);
     setOpenSources({});
     setInput("");
-    setSpeakingIndex(null);
-    setIsPaused(false);
     stopSpeech();
-  };
-
-  const regenerateLast = async () => {
-    if (loading) return;
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    if (!lastUser) return;
-    setInput(lastUser.content);
-    await sendMessage();
   };
 
   const handleCopy = async (idx: number, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedIndex(idx);
-      setTimeout(() => setCopiedIndex(null), 1200);
+      setTimeout(() => setCopiedIndex(null), 1400);
     } catch {}
   };
 
+  const startVoiceInput = () => {
+    if (!rec) return;
+    window.speechSynthesis.cancel();
+    try { rec.start(); } catch {}
+  };
+
+  /* ============================================================
+     RENDER
+     ============================================================ */
   return (
-    <div
-      className="chat-card"
-      role="region"
-      aria-label="Chat with CA tutor"
-      style={{
-        fontFamily:
-          "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
-      }}
-    >
+    <div className="chat-card" role="region" aria-label="CA Tutor Chat">
+
+      {/* ── Header ── */}
       <div className="chat-card-header">
-        <div className="header-left">
-          <h2 className="chat-title">DHVANI - chatbot</h2>
-          <p className="chat-subtitle">
-            Grounded answers from study materials — concise, exam-focused.
-          </p>
+
+        {/* Row 1: Title + Clear */}
+        <div className="chat-header-row1">
+          <div className="header-left">
+            <h2 className="chat-title">Dhwani CA Tutor</h2>
+            <p className="chat-subtitle">Exam-focused answers from your study materials</p>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={clearChat} title="Clear chat">
+            Clear
+          </button>
         </div>
 
-        <div className="header-right">
-          <div className="chat-header-actions">
-            <div
-              className="chat-mode-toggle"
-              role="tablist"
-              aria-label="Answer mode"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === "qa"}
-                className={
-                  mode === "qa" ? "chat-mode-btn chat-mode-btn-active" : "chat-mode-btn"
-                }
-                onClick={() => setMode("qa")}
-              >
-                Simple Q&amp;A
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === "discussion"}
-                className={
-                  mode === "discussion" ? "chat-mode-btn chat-mode-btn-active" : "chat-mode-btn"
-                }
-                onClick={() => setMode("discussion")}
-              >
-                Discussion
-              </button>
-            </div>
-
+        {/* Row 2: Mode toggle — always fully visible */}
+        <div className="chat-header-row2">
+          <div
+            className="chat-mode-toggle"
+            role="tablist"
+            aria-label="Answer mode"
+          >
             <button
-              className="btn btn-ghost btn-sm"
-              onClick={clearChat}
-              title="Clear chat"
+              type="button"
+              role="tab"
+              aria-selected={mode === "qa"}
+              className={`chat-mode-btn${mode === "qa" ? " chat-mode-btn-active" : ""}`}
+              onClick={() => setMode("qa")}
             >
-              Clear
+              Simple Q&amp;A
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "discussion"}
+              className={`chat-mode-btn${mode === "discussion" ? " chat-mode-btn-active" : ""}`}
+              onClick={() => setMode("discussion")}
+            >
+              Discussion
             </button>
           </div>
         </div>
+
       </div>
 
+      {/* ── Messages ── */}
       <div className="chat-messages" aria-live="polite" ref={chatRef}>
+
         {messages.length === 0 && (
           <div className="chat-empty">
-            <p className="empty-title">Start by asking a CA question</p>
-            <p className="empty-sub">Type your question and press Send.</p>
+            <p className="empty-title">Ask your CA question</p>
+            <p className="empty-sub">Grounded answers from ICAI study materials</p>
+            <div className="suggestions">
+              {SUGGESTIONS.map((s) => (
+                <button key={s} className="suggestion-chip" onClick={() => sendMessage(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
         {messages.map((m, i) => {
           const isAssistant = m.role === "assistant";
-          const dialogue =
-            isAssistant && isDialogue(m.content) ? parseDialogueLines(m.content) : null;
+          const dialogue = isAssistant && isDialogue(m.content) ? parseDialogueLines(m.content) : null;
 
           return (
             <div
               key={i}
-              className={
-                m.role === "user"
-                  ? "chat-bubble-row chat-bubble-row-user"
-                  : "chat-bubble-row chat-bubble-row-assistant"
-              }
+              className={`chat-bubble-row ${m.role === "user" ? "chat-bubble-row-user" : "chat-bubble-row-assistant"}`}
             >
               {isAssistant && (
                 <div className="chat-avatar-video" aria-hidden="true">
-                  <div className="chat-avatar-wave" />
+                  <div className={`chat-avatar-wave${speakingIndex === i ? " chat-avatar-video-active" : ""}`} />
                 </div>
               )}
 
-              <div
-                className={
-                  m.role === "user"
-                    ? "chat-bubble chat-bubble-user"
-                    : "chat-bubble chat-bubble-assistant"
-                }
-              >
+              <div className={`chat-bubble ${m.role === "user" ? "chat-bubble-user" : "chat-bubble-assistant"}`}>
+
                 <div className="chat-bubble-role">
-                  {m.role === "user" ? "You" : "Tutor"}
+                  {m.role === "user" ? "You" : "CA Tutor"}
                 </div>
 
                 {dialogue ? (
                   <div className="dialogue-block">
-                    {dialogue.map((ln, idx) => (
+                    {dialogue.map((ln, di) => (
                       <div
-                        key={idx}
-                        className={`dialogue-line dialogue-line-${
-                          ln.speaker === "A" ? "a" : ln.speaker === "B" ? "b" : "neutral"
-                        }`}
-                        role="article"
+                        key={di}
+                        className={`dialogue-line dialogue-line-${ln.speaker === "A" ? "a" : ln.speaker === "B" ? "b" : "neutral"}`}
                         aria-label={ln.speaker ? `User ${ln.speaker}` : "Dialogue"}
                       >
-                        <span className="dialogue-speaker">
-                          {ln.speaker ? `User ${ln.speaker}: ` : ""}
-                        </span>
-                        <span className="dialogue-text">{ln.text}</span>
+                        {ln.speaker && <span className="dialogue-speaker">User {ln.speaker}:</span>}
+                        <span>{ln.text}</span>
                       </div>
                     ))}
                   </div>
@@ -416,13 +332,13 @@ const Chat: React.FC = () => {
                       {m.content}
                     </ReactMarkdown>
                   </div>
-
                 )}
 
+                {/* Footer */}
                 <div className="chat-bubble-footer">
                   {m.ts && (
                     <div className="chat-bubble-time">
-                      {new Date(m.ts).toLocaleTimeString()}
+                      {new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </div>
                   )}
 
@@ -431,88 +347,71 @@ const Chat: React.FC = () => {
                       <button
                         className="action-btn"
                         onClick={() => handleSpeakToggle(i, m.content)}
-                        title={speakingIndex === i ? (isPaused ? "Resume" : "Pause") : "Speak"}
+                        title="Text to speech"
                       >
-                        {speakingIndex === i ? (isPaused ? "Resume" : "Pause") : "Speak"}
+                        {speakLabel(i)}
                       </button>
+
+                      {speakingIndex === i && (
+                        <button className="action-btn" onClick={stopSpeech} title="Stop audio">
+                          ⏹ Stop
+                        </button>
+                      )}
 
                       <button
                         className="action-btn"
-                        onClick={() => stopSpeech()}
-                        title="Stop audio"
-                      >
-                        Stop
-                      </button>
-
-                      <button
-                        className="action-btn"
+                        onClick={() => setOpenSources((p) => ({ ...p, [i]: !p[i] }))}
                         title={openSources[i] ? "Hide sources" : "Show sources"}
-                        onClick={() => toggleSource(i)}
                       >
-                        {openSources[i] ? "Hide sources" : "Sources"}
+                        {openSources[i] ? "📚 Hide" : "📚 Sources"}
                       </button>
+
                       {/* <button
                         className="action-btn"
                         onClick={() => handleCopy(i, m.content)}
-                        title={copiedIndex === i ? "Copied" : "Copy"}
+                        title="Copy answer"
                       >
-                        {copiedIndex === i ? "Copied" : "Copy"}
-                      </button> */}
-                      {/* <button
-                        className="action-btn"
-                        onClick={regenerateLast}
-                        title="Regenerate"
-                      >
-                        Regenerate
+                        {copiedIndex === i ? "✅ Copied" : "📋 Copy"}
                       </button> */}
                     </div>
                   )}
                 </div>
 
+                {/* Sources */}
                 {isAssistant && m.sources && m.sources.length > 0 && openSources[i] && (
                   <div className="chat-sources" aria-label="Sources">
-                    <div className="chat-sources-title">Sources used</div>
+                    <div className="chat-sources-title">Sources Used</div>
                     <ul className="chat-sources-list">
-                      {m.sources.map((s, idx) => {
+                      {m.sources.map((s, si) => {
                         const title = s.doc_title || s.source || "Unknown source";
                         const page =
-                          s.page_start &&
-                          (s.page_end && s.page_end !== s.page_start
-                            ? `Pages ${s.page_start}-${s.page_end}`
-                            : `Page ${s.page_start}`);
-                        const chapterTopic =
-                          s.chapter || s.topic
-                            ? [s.chapter, s.topic].filter(Boolean).join(" • ")
+                          s.page_start
+                            ? s.page_end && s.page_end !== s.page_start
+                              ? `Pages ${s.page_start}–${s.page_end}`
+                              : `Page ${s.page_start}`
                             : null;
+                        const tag = [s.chapter, s.topic].filter(Boolean).join(" • ");
                         return (
-                          <li key={idx} className="chat-source-item">
+                          <li key={si} className="chat-source-item">
                             <div className="chat-source-title">{title}</div>
                             <div className="chat-source-meta">
-                              {chapterTopic && (
-                                <span className="chat-source-meta-item">{chapterTopic}</span>
-                              )}
-                              {page && (
-                                <span className="chat-source-meta-item">{page}</span>
-                              )}
+                              {tag  && <span className="chat-source-meta-item">{tag}</span>}
+                              {page && <span className="chat-source-meta-item">{page}</span>}
                               {typeof s.score === "number" && (
-                                <span className="chat-source-meta-item"> score {s.score.toFixed(3)}</span>
+                                <span className="chat-source-meta-item">Score {s.score.toFixed(3)}</span>
                               )}
-                              {s.note && <span className="chat-source-meta-item"> {s.note}</span>}
+                              {s.note && <span className="chat-source-meta-item">{s.note}</span>}
                               {s.table_csv_url && (
                                 <span className="chat-source-meta-item">
-                                  <a href={s.table_csv_url} target="_blank" rel="noreferrer">
-                                    Open table CSV
-                                  </a>
+                                  <a href={s.table_csv_url} target="_blank" rel="noreferrer">Open CSV ↗</a>
                                 </span>
                               )}
                               {s.thumb_url && (
-                                <span className="chat-source-meta-item">
-                                  <img
-                                    src={s.thumb_url}
-                                    alt="Figure thumbnail"
-                                    style={{ maxWidth: 180, borderRadius: 6, border: "1px solid #eee" }}
-                                  />
-                                </span>
+                                <img
+                                  src={s.thumb_url}
+                                  alt="Figure"
+                                  style={{ maxWidth: 160, borderRadius: 6, marginTop: 6, border: "1px solid #eee", display: "block" }}
+                                />
                               )}
                             </div>
                           </li>
@@ -526,16 +425,16 @@ const Chat: React.FC = () => {
           );
         })}
 
+        {/* Typing indicator */}
         {loading && (
           <div className="chat-bubble-row chat-bubble-row-assistant">
             <div className="chat-avatar-video chat-avatar-video-active" aria-hidden="true">
               <div className="chat-avatar-wave" />
             </div>
             <div className="chat-bubble chat-bubble-assistant">
+              <div className="chat-bubble-role">CA Tutor</div>
               <div className="typing-dots">
-                <span />
-                <span />
-                <span />
+                <span /><span /><span />
               </div>
             </div>
           </div>
@@ -544,26 +443,17 @@ const Chat: React.FC = () => {
         <div ref={bottomRef} />
       </div>
 
-      <div className="chat-input-bar" role="search" aria-label="Ask question">
+      {/* ── Input Bar ── */}
+      <div className="chat-input-bar" role="search" aria-label="Ask a question">
         <textarea
+          ref={textareaRef}
           className="chat-input chat-textarea"
           value={input}
-          // onChange={(e) => {
-          //   setInput(e.target.value);
-          //   e.currentTarget.style.height = "auto";
-          //   e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-          // }}
-          onChange={(e) => {
-            setInput(e.target.value);
-           }}
-
+          onChange={(e) => { setInput(e.target.value); autoResize(); }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
           }}
-          placeholder="Type your CA question here… (Shift + Enter for new line)"
+          placeholder="Type your CA question… (Shift+Enter for new line)"
           aria-label="Question input"
           rows={1}
         />
@@ -579,12 +469,25 @@ const Chat: React.FC = () => {
             🎙
           </button>
         )}
-        <button type="button" className="btn btn-primary" onClick={sendMessage} disabled={loading}>
-          {loading ? "Thinking…" : "Send"}
+
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => sendMessage()}
+          disabled={loading || !input.trim()}
+          aria-label="Send message"
+        >
+          {loading ? "…" : "Send"}
         </button>
+
         {scrollVisible && (
-          <button type="button" className="scroll-bottom-btn" onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}>
-            Jump to latest
+          <button
+            type="button"
+            className="scroll-bottom-btn"
+            onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+            aria-label="Jump to latest message"
+          >
+            ↓ Latest
           </button>
         )}
       </div>
