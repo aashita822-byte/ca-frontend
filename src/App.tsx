@@ -17,7 +17,7 @@ const ADMIN_NAV: NavItem<AdminView>[] = [
   { view: "dashboard", icon: "📊", label: "Dashboard",   desc: "Students & approvals" },
   { view: "upload",    icon: "📤", label: "Upload",       desc: "Add study materials"  },
   { view: "study",     icon: "🎬", label: "Study Hub",    desc: "Browse content"       },
-  { view: "chat",      icon: "💬", label: "AI Chat",      desc: "Test the chatbot"     },
+  { view: "chat",      icon: "💬", label: "Chat",      desc: "Test the chatbot"     },
 ];
 
 const STUDENT_NAV: NavItem<StudentView>[] = [
