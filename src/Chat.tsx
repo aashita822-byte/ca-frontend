@@ -237,7 +237,7 @@ const Chat: React.FC = () => {
         {/* Row 1: Title + Clear */}
         <div className="chat-header-row1">
           <div className="header-left">
-            <h2 className="chat-title">Dhwani CA Tutor</h2>
+            <h2 className="chat-title">Dhvani CA Tutor</h2>
             <p className="chat-subtitle">Exam-focused answers from your study materials</p>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={clearChat} title="Clear chat">
