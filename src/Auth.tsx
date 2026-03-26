@@ -58,9 +58,19 @@ const FREE_FEATURES = [
 ];
 
 type Step = "details" | "plan" | "payment";
+type ForgotStep = "email" | "otp" | "newpass" | "done";
 
 const Auth: React.FC<Props> = ({ onLoggedIn }) => {
   const [mode, setMode] = useState<"login" | "signup">("login");
+
+  /* forgot password */
+  const [forgotOpen,  setForgotOpen]  = useState(false);
+  const [forgotStep,  setForgotStep]  = useState<ForgotStep>("email");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotOtp,   setForgotOtp]   = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [forgotError, setForgotError] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   /* signup multi-step */
   const [step, setStep] = useState<Step>("details");
@@ -94,6 +104,48 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
     script.onload = () => setRzpLoaded(true);
     document.body.appendChild(script);
   }, []);
+
+  const resetForgot = () => {
+    setForgotOpen(false); setForgotStep("email");
+    setForgotEmail(""); setForgotOtp(""); setNewPassword("");
+    setForgotError("");
+  };
+
+  const handleForgotSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(""); setForgotLoading(true);
+    try {
+      await api.post("/auth/forgot-password", { email: forgotEmail });
+      setForgotStep("otp");
+    } catch (err: any) {
+      setForgotError(err?.response?.data?.detail || "Failed to send OTP.");
+    } finally { setForgotLoading(false); }
+  };
+
+  const handleForgotVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(""); setForgotLoading(true);
+    try {
+      await api.post("/auth/verify-otp", { email: forgotEmail, otp: forgotOtp });
+      setForgotStep("newpass");
+    } catch (err: any) {
+      setForgotError(err?.response?.data?.detail || "Invalid OTP.");
+    } finally { setForgotLoading(false); }
+  };
+
+  const handleForgotResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) { setForgotError("Password must be at least 6 characters."); return; }
+    setForgotError(""); setForgotLoading(true);
+    try {
+      await api.post("/auth/reset-password", {
+        email: forgotEmail, otp: forgotOtp, new_password: newPassword,
+      });
+      setForgotStep("done");
+    } catch (err: any) {
+      setForgotError(err?.response?.data?.detail || "Reset failed.");
+    } finally { setForgotLoading(false); }
+  };
 
   const reset = () => {
     setEmail(""); setPassword(""); setError(""); setSuccessMessage("");
@@ -262,7 +314,13 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
                   value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               </div>
               <div className="auth-field">
-                <label className="auth-label">Password</label>
+                <div className="auth-label-row">
+                  <label className="auth-label">Password</label>
+                  <button type="button" className="auth-forgot-link"
+                    onClick={() => { setForgotOpen(true); setForgotStep("email"); setForgotError(""); }}>
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="auth-input-wrap">
                   <input className="auth-input" type={showPass ? "text" : "password"}
                     placeholder="••••••••" value={password}
@@ -499,6 +557,105 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
         )}
 
       </div>
+
+      {/* ── FORGOT PASSWORD MODAL ── */}
+      {forgotOpen && (
+        <div className="forgot-overlay" onClick={(e) => { if (e.target === e.currentTarget) resetForgot(); }}>
+          <div className="forgot-modal" role="dialog" aria-modal="true" aria-label="Reset Password">
+
+            {/* Close */}
+            <button className="forgot-close" onClick={resetForgot} aria-label="Close">✕</button>
+
+            {/* ── Step: Enter Email ── */}
+            {forgotStep === "email" && (
+              <>
+                <div className="forgot-icon">🔐</div>
+                <h2 className="forgot-title">Forgot Password?</h2>
+                <p className="forgot-sub">Enter your registered email. We'll send a 6-digit OTP.</p>
+                <form className="auth-form" onSubmit={handleForgotSendOtp}>
+                  <div className="auth-field">
+                    <label className="auth-label">Email address</label>
+                    <input className="auth-input" type="email" placeholder="you@example.com"
+                      value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required autoFocus />
+                  </div>
+                  {forgotError && <div className="auth-error" role="alert"><span className="auth-alert-icon">⚠</span> {forgotError}</div>}
+                  <button className="auth-btn" type="submit" disabled={forgotLoading}>
+                    {forgotLoading ? <><span className="auth-spinner" /> Sending…</> : "Send OTP →"}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {/* ── Step: Enter OTP ── */}
+            {forgotStep === "otp" && (
+              <>
+                <div className="forgot-icon">📩</div>
+                <h2 className="forgot-title">Enter OTP</h2>
+                <p className="forgot-sub">A 6-digit OTP was sent to <strong>{forgotEmail}</strong>. Valid for 10 minutes.</p>
+                <form className="auth-form" onSubmit={handleForgotVerifyOtp}>
+                  <div className="auth-field">
+                    <label className="auth-label">6-digit OTP</label>
+                    <input className="auth-input forgot-otp-input" type="text"
+                      placeholder="— — — — — —"
+                      maxLength={6} value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                      required autoFocus />
+                  </div>
+                  {forgotError && <div className="auth-error" role="alert"><span className="auth-alert-icon">⚠</span> {forgotError}</div>}
+                  <button className="auth-btn" type="submit" disabled={forgotLoading || forgotOtp.length < 6}>
+                    {forgotLoading ? <><span className="auth-spinner" /> Verifying…</> : "Verify OTP →"}
+                  </button>
+                </form>
+                <button className="plan-back-btn" style={{ marginTop: 8 }}
+                  onClick={() => { setForgotStep("email"); setForgotError(""); setForgotOtp(""); }}>
+                  ← Change email
+                </button>
+              </>
+            )}
+
+            {/* ── Step: New Password ── */}
+            {forgotStep === "newpass" && (
+              <>
+                <div className="forgot-icon">🔑</div>
+                <h2 className="forgot-title">Set New Password</h2>
+                <p className="forgot-sub">Choose a strong password for your account.</p>
+                <form className="auth-form" onSubmit={handleForgotResetPassword}>
+                  <div className="auth-field">
+                    <label className="auth-label">New Password</label>
+                    <div className="auth-input-wrap">
+                      <input className="auth-input" type={showPass ? "text" : "password"}
+                        placeholder="Min. 6 characters" value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)} required autoFocus />
+                      <button type="button" className="auth-pass-toggle"
+                        onClick={() => setShowPass((p) => !p)} tabIndex={-1}>
+                        {showPass ? "🙈" : "👁"}
+                      </button>
+                    </div>
+                  </div>
+                  {forgotError && <div className="auth-error" role="alert"><span className="auth-alert-icon">⚠</span> {forgotError}</div>}
+                  <button className="auth-btn" type="submit" disabled={forgotLoading || newPassword.length < 6}>
+                    {forgotLoading ? <><span className="auth-spinner" /> Saving…</> : "Reset Password →"}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {/* ── Step: Done ── */}
+            {forgotStep === "done" && (
+              <div className="forgot-done">
+                <div className="forgot-done-icon">✅</div>
+                <h2 className="forgot-title">Password Reset!</h2>
+                <p className="forgot-sub">Your password has been updated. You can now sign in.</p>
+                <button className="auth-btn" onClick={resetForgot}>
+                  Go to Sign In →
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
