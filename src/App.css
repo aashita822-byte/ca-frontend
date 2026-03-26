@@ -3563,3 +3563,157 @@ body {
   0%   { transform: scale(0.5); opacity: 0; }
   100% { transform: scale(1);   opacity: 1; }
 }
+
+
+/* =============================================
+   FORGOT PASSWORD MODAL
+   ============================================= */
+
+/* Overlay */
+.forgot-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 24, 40, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Modal card */
+.forgot-modal {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  padding: 44px 40px 36px;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+/* Close button */
+.forgot-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.forgot-close:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+/* Icon */
+.forgot-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Title */
+.forgot-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+/* Subtitle */
+.forgot-sub {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* OTP input — big centered digits */
+.forgot-otp-input {
+  text-align: center !important;
+  font-size: 1.6rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 10px !important;
+  font-family: monospace !important;
+  color: var(--primary) !important;
+  padding: 14px !important;
+}
+
+/* Done screen */
+.forgot-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.forgot-done-icon {
+  font-size: 3.5rem;
+  animation: successPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ── Forgot password link in login form ── */
+.auth-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* Override auth-label margin when inside auth-label-row */
+.auth-label-row .auth-label {
+  margin-bottom: 0;
+}
+
+.auth-forgot-link {
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-forgot-link:hover {
+  color: var(--accent-light);
+}
+
+@media (max-width: 480px) {
+  .forgot-modal {
+    padding: 36px 24px 28px;
+  }
+}
