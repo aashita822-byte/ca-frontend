@@ -10,6 +10,10 @@ type Student = {
   ca_level?: string;
   ca_attempt?: number;
   status?: string;
+  plan?: string;               // "free" | "paid"
+  subscription_status?: string;
+  payment_id?: string;
+  plan_activated_at?: string;
 };
 
 const LEVEL_COLOR: Record<string, { bg: string; color: string }> = {
@@ -91,6 +95,8 @@ const AdminDashboard: React.FC = () => {
 
   const totalPending  = students.filter((s) => s.status === "pending").length;
   const totalApproved = students.filter((s) => s.status === "approved").length;
+  const totalPaid     = students.filter((s) => s.plan === "paid").length;
+  const totalFree     = students.filter((s) => s.plan !== "paid").length;
 
   /* ── Loading ── */
   if (loading) {
@@ -157,6 +163,20 @@ const AdminDashboard: React.FC = () => {
               {students.length ? Math.round((totalApproved / students.length) * 100) : 0}%
             </div>
             <div className="adm-stat-label">Approval Rate</div>
+          </div>
+        </div>
+        <div className="adm-stat-card" style={{ borderTop: "3px solid #c9a84c" }}>
+          <div className="adm-stat-icon">✨</div>
+          <div className="adm-stat-body">
+            <div className="adm-stat-num" style={{ color: "#92701a" }}>{totalPaid}</div>
+            <div className="adm-stat-label">Premium Students</div>
+          </div>
+        </div>
+        <div className="adm-stat-card">
+          <div className="adm-stat-icon">🆓</div>
+          <div className="adm-stat-body">
+            <div className="adm-stat-num">{totalFree}</div>
+            <div className="adm-stat-label">Free Tier Students</div>
           </div>
         </div>
       </div>
@@ -293,6 +313,16 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         <div className="adm-detail-chip">
                           🔁 Attempt {student.ca_attempt ?? "—"}
+                        </div>
+                        <div
+                          className="adm-detail-chip"
+                          style={
+                            student.plan === "paid"
+                              ? { background: "rgba(201,168,76,0.15)", color: "#92701a", border: "1px solid rgba(201,168,76,0.4)", fontWeight: 700 }
+                              : { background: "var(--surface-2)", color: "var(--text-muted)" }
+                          }
+                        >
+                          {student.plan === "paid" ? "✨ Premium" : "🆓 Free"}
                         </div>
                       </div>
 
