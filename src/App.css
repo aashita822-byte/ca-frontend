@@ -3717,3 +3717,32 @@ body {
     padding: 36px 24px 28px;
   }
 }
+
+
+/* =============================================
+   PDF MODAL — BACK BUTTON
+   ============================================= */
+.pdf-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.pdf-back-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  transform: translateX(-2px);
+}
