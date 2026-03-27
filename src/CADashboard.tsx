@@ -283,6 +283,13 @@ const CADashboard: React.FC = () => {
           <div className="pdf-container">
             <div className="pdf-header">
               <div className="pdf-header-info">
+                <button
+                  className="pdf-back-btn"
+                  onClick={() => setViewer(null)}
+                  aria-label="Go back"
+                >
+                  ← Back
+                </button>
                 <span className="pdf-header-icon">📄</span>
                 <div>
                   <h3 className="pdf-header-title">{viewer.title}</h3>
