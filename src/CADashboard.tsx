@@ -7,30 +7,30 @@ type Level = "Foundation" | "Intermediate" | "Final" | "Others";
 const DEFAULT_VIDEO_URL = "https://youtu.be/76UUB7Vv8s8?si=7NlDSfqlON-SVpIi";
 
 const LEVEL_META: Record<Level, { icon: string; desc: string; color: string }> = {
-  Foundation: { icon: "🌱", desc: "Core concepts & basics", color: "#0d7a4e" },
-  Intermediate: { icon: "📊", desc: "In-depth applied study", color: "#b45309" },
-  Final: { icon: "🏆", desc: "Advanced & strategic", color: "#1a2744" },
-  Others: { icon: "📁", desc: "Reference & extras", color: "#6b46c1" },
+  Foundation:   { icon: "🌱", desc: "Core concepts & basics",     color: "#0d7a4e" },
+  Intermediate: { icon: "📊", desc: "In-depth applied study",     color: "#b45309" },
+  Final:        { icon: "🏆", desc: "Advanced & strategic",       color: "#1a2744" },
+  Others:       { icon: "📁", desc: "Reference & extras",         color: "#6b46c1" },
 };
 
 const CADashboard: React.FC = () => {
-  const [selected, setSelected] = useState<Level | null>(null);
-  const [tree, setTree] = useState<any>({});
-  const [viewer, setViewer] = useState<any>(null);
+  const [selected, setSelected]     = useState<Level | null>(null);
+  const [tree, setTree]             = useState<any>({});
+  const [viewer, setViewer]         = useState<any>(null);
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
   const [treeLoading, setTreeLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    api.get("/dashboard/tree")
+    api
+      .get("/dashboard/tree")
       .then((res) => setTree(res.data))
       .catch((err) => console.error(err))
       .finally(() => setTreeLoading(false));
   }, []);
 
-  const toggleModule = (key: string) => {
+  const toggleModule = (key: string) =>
     setOpenModules((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const expandAll = () => {
     if (!selected || !tree[selected]) return;
@@ -51,7 +51,7 @@ const CADashboard: React.FC = () => {
     setOpenModules({});
   };
 
-  // Flatten tree for search
+  /** Filter chapters within a module by the search query */
   const getFilteredChapters = (subject: string, module: string) => {
     const chapters = tree[selected!]?.[subject]?.[module] ?? {};
     if (!searchQuery.trim()) return chapters;
@@ -60,11 +60,27 @@ const CADashboard: React.FC = () => {
     Object.entries(chapters).forEach(([ch, items]: [string, any]) => {
       const matchedItems = items.filter(
         (it: any) =>
-          it.title?.toLowerCase().includes(q) || ch.toLowerCase().includes(q)
+          it.title?.toLowerCase().includes(q) ||
+          ch.toLowerCase().includes(q) ||
+          it.unit?.toLowerCase().includes(q)
       );
       if (matchedItems.length > 0) filtered[ch] = matchedItems;
     });
     return filtered;
+  };
+
+  /** Count total PDFs for a given level */
+  const countLevelPdfs = (lvl: string) => {
+    if (!tree[lvl]) return 0;
+    let count = 0;
+    Object.values(tree[lvl]).forEach((subjects: any) => {
+      Object.values(subjects).forEach((modules: any) => {
+        Object.values(modules).forEach((items: any) => {
+          count += items.length;
+        });
+      });
+    });
+    return count;
   };
 
   return (
@@ -83,7 +99,7 @@ const CADashboard: React.FC = () => {
               <input
                 className="ca-search-input"
                 type="search"
-                placeholder="Search chapters or topics…"
+                placeholder="Search chapters, units or topics…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -105,8 +121,9 @@ const CADashboard: React.FC = () => {
           ) : (
             <div className="level-cards-grid">
               {(["Foundation", "Intermediate", "Final", "Others"] as Level[]).map((lvl) => {
-                const meta = LEVEL_META[lvl];
+                const meta        = LEVEL_META[lvl];
                 const subjectCount = tree[lvl] ? Object.keys(tree[lvl]).length : 0;
+                const pdfCount    = countLevelPdfs(lvl);
                 return (
                   <button
                     key={lvl}
@@ -117,8 +134,15 @@ const CADashboard: React.FC = () => {
                     <span className="level-card-icon">{meta.icon}</span>
                     <span className="level-card-name">{lvl}</span>
                     <span className="level-card-desc">{meta.desc}</span>
-                    {subjectCount > 0 && (
-                      <span className="level-card-badge">{subjectCount} subjects</span>
+                    {subjectCount > 0 ? (
+                      <div className="level-card-stats">
+                        <span className="level-card-badge">{subjectCount} subjects</span>
+                        <span className="level-card-badge level-card-badge-pdf">
+                          {pdfCount} PDFs
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="level-card-empty">No content yet</span>
                     )}
                     <span className="level-card-arrow">→</span>
                   </button>
@@ -131,16 +155,8 @@ const CADashboard: React.FC = () => {
           {!treeLoading && (
             <div className="dashboard-stats">
               {(["Foundation", "Intermediate", "Final", "Others"] as Level[]).map((lvl) => {
-                if (!tree[lvl]) return null;
-                const subjects = Object.keys(tree[lvl]);
-                let pdfCount = 0;
-                subjects.forEach((s) => {
-                  Object.keys(tree[lvl][s]).forEach((m) => {
-                    Object.values(tree[lvl][s][m]).forEach((items: any) => {
-                      pdfCount += items.length;
-                    });
-                  });
-                });
+                const pdfCount = countLevelPdfs(lvl);
+                if (!pdfCount) return null;
                 return (
                   <div className="dash-stat" key={lvl}>
                     <span className="dash-stat-num">{pdfCount}</span>
@@ -172,10 +188,13 @@ const CADashboard: React.FC = () => {
             </div>
           </div>
 
-          {!tree[selected] ? (
+          {!tree[selected] || Object.keys(tree[selected]).length === 0 ? (
             <div className="ca-empty-state">
               <span className="ca-empty-icon">📭</span>
-              <p>No content available for {selected} yet.</p>
+              <p>No content available for <strong>{selected}</strong> yet.</p>
+              <p className="ca-empty-hint">
+                Ask your admin to upload PDFs for this level.
+              </p>
             </div>
           ) : (
             <div className="premium-tree">
@@ -190,15 +209,17 @@ const CADashboard: React.FC = () => {
                   </div>
 
                   {Object.keys(tree[selected][subject]).map((module) => {
-                    const moduleKey = `${subject}-${module}`;
-                    const isOpen = openModules[moduleKey];
+                    const moduleKey       = `${subject}-${module}`;
+                    const isOpen          = openModules[moduleKey];
                     const filteredChapters = getFilteredChapters(subject, module);
-                    const chapterKeys = Object.keys(filteredChapters).sort((a, b) => {
-                      const getNum = (s: string) => { const m = s.match(/\d+/); return m ? parseInt(m[0]) : 999; };
+                    const chapterKeys     = Object.keys(filteredChapters).sort((a, b) => {
+                      const getNum = (s: string) => {
+                        const m = s.match(/\d+/);
+                        return m ? parseInt(m[0]) : 999;
+                      };
                       return getNum(a) - getNum(b);
                     });
 
-                    // Hide module if search yields nothing
                     if (searchQuery && chapterKeys.length === 0) return null;
 
                     return (
@@ -229,6 +250,13 @@ const CADashboard: React.FC = () => {
                                 <div className="resource-list">
                                   {filteredChapters[chapter].map((item: any) => (
                                     <div key={item._id} className="resource-item">
+                                      {/* Unit label if present */}
+                                      {item.unit && (
+                                        <div className="resource-unit-label">
+                                          📎 {item.unit}
+                                        </div>
+                                      )}
+
                                       <button
                                         className="pdf-btn"
                                         onClick={() => setViewer(item)}
@@ -248,7 +276,12 @@ const CADashboard: React.FC = () => {
                                         </button>
                                         <button
                                           className="resource-action-btn resource-action-video"
-                                          onClick={() => window.open(item.video_url || DEFAULT_VIDEO_URL, "_blank")}
+                                          onClick={() =>
+                                            window.open(
+                                              item.video_url || DEFAULT_VIDEO_URL,
+                                              "_blank"
+                                            )
+                                          }
                                           title="Watch video lecture"
                                         >
                                           ▶ Video
@@ -278,7 +311,9 @@ const CADashboard: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-label={viewer.title}
-          onClick={(e) => { if (e.target === e.currentTarget) setViewer(null); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewer(null);
+          }}
         >
           <div className="pdf-container">
             <div className="pdf-header">
@@ -296,12 +331,18 @@ const CADashboard: React.FC = () => {
                   {viewer.chapter && (
                     <span className="pdf-header-sub">{viewer.chapter}</span>
                   )}
+                  {viewer.unit && (
+                    <span className="pdf-header-unit">📎 {viewer.unit}</span>
+                  )}
                 </div>
               </div>
               <div className="pdf-header-actions">
                 <button
                   className="resource-action-btn resource-action-chat"
-                  onClick={() => { setViewer(null); (window as any).goChat?.(); }}
+                  onClick={() => {
+                    setViewer(null);
+                    (window as any).goChat?.();
+                  }}
                 >
                   🤖 Ask AI
                 </button>
