@@ -49,7 +49,25 @@ const PLAN_FEATURES: Record<CALevel, string[]> = {
     "Priority support",
   ],
 };
+const ATTEMPT_MONTHS: Record<CALevel, string[]> = {
+  Foundation:   ["January", "May", "September"],
+  Intermediate: ["January", "May", "September"],
+  Final:        ["May", "November"],
+};
 
+function getAttemptOptions(level: CALevel | ""): { label: string; value: string }[] {
+  if (!level) return [];
+  const months = ATTEMPT_MONTHS[level];
+  const curYear  = new Date().getFullYear();
+  const nextYear = curYear + 1;
+  const options: { label: string; value: string }[] = [];
+  [curYear, nextYear].forEach((yr) => {
+    months.forEach((m) => {
+      options.push({ label: `${m} ${yr}`, value: `${m} ${yr}` });
+    });
+  });
+  return options;
+}
 const FREE_FEATURES = [
   "3 AI questions per day",
   "Limited study material access",
@@ -245,7 +263,7 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
         name,
         phone,
         ca_level: caLevel,
-        ca_attempt: Number(caAttempt),
+        ca_attempt: caAttempt,   // plain string like "May 2026"
         plan,
         payment_id: paymentId || null,
       });
@@ -403,11 +421,49 @@ const Auth: React.FC<Props> = ({ onLoggedIn }) => {
                     <input className="auth-input" type="email" placeholder="you@example.com"
                       value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
                   </div>
-                  <div className="auth-field">
+                  {/* <div className="auth-field">
                     <label className="auth-label">CA Attempt <span className="auth-label-hint">(e.g. 1, 2, 3…)</span></label>
                     <input className="auth-input" type="number" min={1} max={20}
                       placeholder="Which attempt?" value={caAttempt}
                       onChange={(e) => setCaAttempt(e.target.value)} required />
+                  </div> */}
+                  <div className="auth-field">
+                    <label className="auth-label">
+                      CA Attempt
+                      <span className="auth-label-hint"> (select your exam attempt)</span>
+                    </label>
+                    <select
+                      className="auth-input"
+                      value={caAttempt}
+                      onChange={(e) => setCaAttempt(e.target.value)}
+                      required
+                      disabled={!caLevel}
+                      style={{ cursor: caLevel ? "pointer" : "not-allowed", opacity: caLevel ? 1 : 0.5 }}
+                    >
+                      <option value="" disabled>
+                        {caLevel ? "— Select attempt —" : "Select your CA level first"}
+                      </option>
+                      {caLevel &&
+                        (() => {
+                          const curYear  = new Date().getFullYear();
+                          const nextYear = curYear + 1;
+                          return [curYear, nextYear].map((yr) => (
+                            <optgroup key={yr} label={`📅 ${yr}`}>
+                              {ATTEMPT_MONTHS[caLevel as CALevel].map((month) => (
+                                <option key={`${month}-${yr}`} value={`${month} ${yr}`}>
+                                  {month} {yr}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ));
+                        })()
+                      }
+                    </select>
+                    {caLevel && (
+                      <p style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 4 }}>
+                        {caLevel} exams: {ATTEMPT_MONTHS[caLevel as CALevel].join(", ")} each year
+                      </p>
+                    )}
                   </div>
                   <div className="auth-field">
                     <label className="auth-label">Password</label>
