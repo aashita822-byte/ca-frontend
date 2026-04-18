@@ -450,6 +450,30 @@ const CADashboard: React.FC = () => {
 
   const closeViewer = () => setViewer(null);
 
+  // ── Download audio as a file via authenticated fetch ──
+  const handleDownloadAudio = async (item: PDFItem) => {
+    if (!item.audio_url) return;
+    try {
+      const res = await api.get("/dashboard/audio-proxy", {
+        params:       { url: item.audio_url },
+        responseType: "blob",
+      });
+      const blob     = new Blob([res.data], { type: "audio/mpeg" });
+      const objUrl   = URL.createObjectURL(blob);
+      const anchor   = document.createElement("a");
+      const filename = item.title.replace(/[^a-z0-9]/gi, "_").toLowerCase() + "_audio.mp3";
+      anchor.href     = objUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(objUrl);
+    } catch (err: any) {
+      console.error("[download audio]", err);
+      alert("Could not download audio. Please try again.");
+    }
+  };
+
   const getFilteredChapters = (subject: string, module: string) => {
     const chapters = tree[selected!]?.[subject]?.[module] ?? {};
     if (!searchQuery.trim()) return chapters;
@@ -937,6 +961,13 @@ const CADashboard: React.FC = () => {
                     <h4>{viewer.item.title}</h4>
                     <p>Now listening to audio lecture</p>
                   </div>
+                  <button
+                    className="resource-action-btn resource-action-download-audio"
+                    onClick={() => handleDownloadAudio(viewer.item)}
+                    title="Download audio as MP3"
+                  >
+                    ⬇ Download MP3
+                  </button>
                 </div>
               )}
             </div>
