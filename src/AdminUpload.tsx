@@ -46,13 +46,14 @@ interface DeleteReport {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const COURSES = ["Foundation", "Intermediate", "Final", "Other"] as const;
+const COURSES = ["Foundation", "Intermediate", "Final", "Self Paced","Others"] as const;
 
 const LEVEL_ICONS: Record<string, string> = {
   Foundation:   "🌱",
   Intermediate: "📊",
   Final:        "🏆",
-  Other:        "📁",
+  "Self Paced": "🎯",
+  Others:       "📁",
 };
 
 const STORAGE_BADGE: Record<string, { label: string; cls: string }> = {
