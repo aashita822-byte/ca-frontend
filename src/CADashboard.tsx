@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import api from "./api";
 import "./App.css";
 
-type Level = "Foundation" | "Intermediate" | "Final" | "Others";
+type Level = "Foundation" | "Intermediate" | "Final" | "Self Paced" | "Others";
 
 const DEFAULT_VIDEO_URL = "https://youtu.be/76UUB7Vv8s8?si=7NlDSfqlON-SVpIi";
 
@@ -19,9 +19,9 @@ const LEVEL_META: Record<Level, { icon: string; desc: string; color: string }> =
   Foundation:   { icon: "🌱", desc: "Core concepts & basics",  color: "#0d7a4e" },
   Intermediate: { icon: "📊", desc: "In-depth applied study",  color: "#b45309" },
   Final:        { icon: "🏆", desc: "Advanced & strategic",    color: "#1a2744" },
-  Others:       { icon: "📁", desc: "Reference & extras",      color: "#6b46c1" },
+  "Self Paced": { icon: "🎯", desc: "Learn at your own pace",  color: "#0e7490" },
+  Others:       { icon: "📁", desc: "Reference & extras",      color: "#6b46c1" }
 };
-
 // ============================================================
 // TYPES
 // ============================================================
@@ -626,7 +626,7 @@ const CADashboard: React.FC = () => {
             </div>
           ) : (
             <div className="level-cards-grid">
-              {(["Foundation", "Intermediate", "Final", "Others"] as Level[]).map((lvl) => {
+              {(["Foundation", "Intermediate", "Final", "Self Paced", "Others"] as Level[]).map((lvl) => {
                 const meta         = LEVEL_META[lvl];
                 const subjectCount = tree[lvl] ? Object.keys(tree[lvl]).length : 0;
                 const pdfCount     = countLevelPdfs(lvl);
@@ -657,7 +657,7 @@ const CADashboard: React.FC = () => {
 
           {!treeLoading && (
             <div className="dashboard-stats">
-              {(["Foundation", "Intermediate", "Final", "Others"] as Level[]).map((lvl) => {
+              {(["Foundation", "Intermediate", "Final", "Self Paced", "Others"] as Level[]).map((lvl) => {
                 const pdfCount = countLevelPdfs(lvl);
                 if (!pdfCount) return null;
                 return (
