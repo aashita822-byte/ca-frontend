@@ -54,6 +54,54 @@ const stripSourcesText = (answer: string) => {
     : { body: split[0].trim(), sourcesText: split.slice(1).join("").trim() };
 };
 
+/**
+ * Strips markdown syntax so Web Speech API reads clean prose,
+ * not asterisks, hashes, backticks, brackets, etc.
+ */
+const stripMarkdown = (text: string): string => {
+  return text
+    // Remove fenced code blocks entirely (```...```)
+    .replace(/```[\s\S]*?```/g, " code block ")
+    // Remove inline code (`code`)
+    .replace(/`[^`]*`/g, (m) => m.slice(1, -1))
+    // Remove ATX headings: ### Heading → Heading
+    .replace(/^#{1,6}\s+/gm, "")
+    // Remove bold+italic: ***text*** or ___text___
+    .replace(/(\*{3}|_{3})(.*?)\1/g, "$2")
+    // Remove bold: **text** or __text__
+    .replace(/(\*{2}|_{2})(.*?)\1/g, "$2")
+    // Remove italic: *text* or _text_
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    // Remove strikethrough: ~~text~~
+    .replace(/~~(.*?)~~/g, "$1")
+    // Remove blockquotes: > text
+    .replace(/^\s*>\s?/gm, "")
+    // Remove horizontal rules
+    .replace(/^[-*_]{3,}\s*$/gm, "")
+    // Remove unordered list markers: - item / * item / + item
+    .replace(/^\s*[-*+]\s+/gm, "")
+    // Remove ordered list markers: 1. item
+    .replace(/^\s*\d+\.\s+/gm, "")
+    // Remove markdown links: [text](url) → text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Remove bare URLs
+    .replace(/https?:\/\/\S+/g, "")
+    // Remove image syntax: ![alt](url)
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    // Remove HTML tags
+    .replace(/<[^>]+>/g, "")
+    // Remove table separators: |---|---|
+    .replace(/^\|[-| :]+\|$/gm, "")
+    // Remove table pipes (|) used as column dividers
+    .replace(/\|/g, " ")
+    // Remove remaining lone special chars: @ # $ ^ & * ~ ` etc.
+    .replace(/[#@$^&*~`\\]/g, "")
+    // Collapse multiple spaces / blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+};
+
 const SUGGESTIONS = [
   "What is the Companies Act, 2013?",
   "Explain AS 9 – Revenue Recognition",
@@ -345,7 +393,7 @@ const Chat: React.FC = () => {
                     <div className="message-actions" role="group" aria-label="Message actions">
                       <button
                         className="action-btn"
-                        onClick={() => handleSpeakToggle(i, m.content)}
+                        onClick={() => handleSpeakToggle(i, stripMarkdown(m.content))}
                         title="Text to speech"
                       >
                         {speakLabel(i)}
