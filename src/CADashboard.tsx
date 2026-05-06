@@ -22,6 +22,7 @@ const LEVEL_META: Record<Level, { icon: string; desc: string; color: string }> =
   "Self Paced": { icon: "🎯", desc: "Learn at your own pace",  color: "#0e7490" },
   Others:       { icon: "📁", desc: "Reference & extras",      color: "#6b46c1" }
 };
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -34,12 +35,12 @@ interface PDFItem {
   unit?: string;
   video_url?: string;
   audio_url?: string;
-  simplified_pdf_url?: string;          // ← NEW: Smart PDF S3 URL from MongoDB
+  simplified_pdf_url?: string;          // ← Smart PDF S3 URL from MongoDB
   video_created_at?: string;
   status?: "pending" | "processing" | "completed" | "failed";
 }
 
-type ViewerType = "pdf" | "video" | "audio" | "smart_pdf"; // ← NEW: smart_pdf viewer type
+type ViewerType = "pdf" | "video" | "audio" | "smart_pdf";
 
 interface Viewer {
   type: ViewerType;
@@ -51,6 +52,12 @@ interface VideoJob {
   dashboardId: string;
   startedAt: number;
   status: "polling" | "completed" | "failed" | "timeout";
+  message?: string;
+}
+
+// ← NEW: Smart PDF upload state per item _id
+interface SmartUpload {
+  status: "idle" | "uploading" | "success" | "error";
   message?: string;
 }
 
@@ -190,6 +197,10 @@ const CADashboard: React.FC = () => {
 
   // Polling interval handles keyed by dashboardId
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+
+  // ← NEW: Smart PDF upload state + hidden file input refs (keyed by item._id)
+  const [smartUploads, setSmartUploads] = useState<Record<string, SmartUpload>>({});
+  const smartPdfRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // ============================================================
   // CLEANUP on unmount
@@ -421,6 +432,59 @@ const CADashboard: React.FC = () => {
   };
 
   // ============================================================
+  // ← NEW: SMART PDF UPLOAD HANDLER (Admin only)
+  // ============================================================
+  const handleSmartPdfSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    item: PDFItem,
+  ) => {
+    const file = e.target.files?.[0];
+    // Reset input so re-selecting the same file fires onChange again
+    if (e.target) e.target.value = "";
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Only PDF files are accepted for Smart PDF upload.");
+      return;
+    }
+
+    const id = item._id;
+    setSmartUploads((prev) => ({ ...prev, [id]: { status: "uploading", message: "Uploading…" } }));
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      const res = await api.post(
+        `/admin/materials/${id}/upload_smart_pdf`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+
+      const { simplified_pdf_url } = res.data as { simplified_pdf_url: string };
+
+      // Patch tree + open viewer immediately — no page refresh needed
+      patchTreeItem(id, { simplified_pdf_url });
+
+      setSmartUploads((prev) => ({
+        ...prev,
+        [id]: { status: "success", message: "Smart PDF saved!" },
+      }));
+
+      // Auto-reset after 4 s
+      setTimeout(() => {
+        setSmartUploads((prev) => ({ ...prev, [id]: { status: "idle" } }));
+      }, 4000);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail ?? "Upload failed. Please try again.";
+      setSmartUploads((prev) => ({ ...prev, [id]: { status: "error", message: detail } }));
+      setTimeout(() => {
+        setSmartUploads((prev) => ({ ...prev, [id]: { status: "idle" } }));
+      }, 4000);
+    }
+  };
+
+  // ============================================================
   // TREE NAVIGATION HANDLERS
   // ============================================================
   const toggleModule = (key: string) =>
@@ -584,6 +648,69 @@ const CADashboard: React.FC = () => {
     }
 
     return null;
+  };
+
+  // ============================================================
+  // ← NEW: SMART PDF UPLOAD BUTTON RENDERER (Admin only)
+  // ============================================================
+  const renderSmartPdfUploadButton = (item: PDFItem) => {
+    if (!isAdmin) return null;
+
+    const id  = item._id;
+    const job = smartUploads[id] ?? { status: "idle" };
+
+    const label =
+      job.status === "uploading" ? "⏫ Uploading…"        :
+      job.status === "success"   ? "✅ Saved!"             :
+      job.status === "error"     ? "❌ Retry"              :
+      item.simplified_pdf_url    ? "🧠 Replace Smart PDF" :
+                                   "🧠 Upload Smart PDF";
+
+    const titleText =
+      job.status === "uploading" ? "Uploading Smart PDF to S3…"                      :
+      job.status === "error"     ? (job.message ?? "Upload failed — click to retry") :
+      item.simplified_pdf_url    ? "Smart PDF exists — click to replace"             :
+                                   "Upload a simplified PDF for students (Admin only)";
+
+    return (
+      <>
+        {/* One hidden file input per item — triggered programmatically by the button */}
+        <input
+          ref={(el) => { smartPdfRefs.current[id] = el; }}
+          type="file"
+          accept=".pdf,application/pdf"
+          style={{ display: "none" }}
+          onChange={(e) => handleSmartPdfSelect(e, item)}
+        />
+        <button
+          className="resource-action-btn resource-action-smart-pdf-upload"
+          disabled={job.status === "uploading"}
+          title={titleText}
+          onClick={() => smartPdfRefs.current[id]?.click()}
+          style={{
+            opacity:     job.status === "uploading" ? 0.65 : 1,
+            cursor:      job.status === "uploading" ? "not-allowed" : "pointer",
+            background:
+              job.status === "success" ? "rgba(16,185,129,0.15)" :
+              job.status === "error"   ? "rgba(239,68,68,0.12)"  :
+              item.simplified_pdf_url  ? "rgba(16,185,129,0.08)" :
+                                         "rgba(139,92,246,0.12)",
+            borderColor:
+              job.status === "success" ? "rgba(16,185,129,0.5)"  :
+              job.status === "error"   ? "rgba(239,68,68,0.5)"   :
+              item.simplified_pdf_url  ? "rgba(16,185,129,0.35)" :
+                                         "rgba(139,92,246,0.4)",
+            color:
+              job.status === "success" ? "#10b981" :
+              job.status === "error"   ? "#ef4444"  :
+              item.simplified_pdf_url  ? "#10b981"  :
+                                         "#a78bfa",
+          }}
+        >
+          {label}
+        </button>
+      </>
+    );
   };
 
   // ============================================================
@@ -765,7 +892,7 @@ const CADashboard: React.FC = () => {
                                           📖 Read
                                         </button>
 
-                                        {/* ── Smart PDF (from MongoDB simplified_pdf_url) ── */}
+                                        {/* ── Smart PDF viewer (shown to all users when URL exists) ── */}
                                         {item.simplified_pdf_url && (
                                           <button
                                             className="resource-action-btn resource-action-smart-pdf"
@@ -799,7 +926,23 @@ const CADashboard: React.FC = () => {
                                           💬 Ask AI
                                         </button>
 
+                                        {/* ── Upload Smart PDF (Admin only) ── */}
+                                        {renderSmartPdfUploadButton(item)}
+
                                       </div>
+
+                                      {/* ── Smart PDF upload status messages ── */}
+                                      {smartUploads[item._id]?.status === "uploading" && (
+                                        <div className="video-job-status" style={{ color: "#a78bfa" }}>
+                                          <span className="spinner-mini" />
+                                          <span>Uploading Smart PDF…</span>
+                                        </div>
+                                      )}
+                                      {smartUploads[item._id]?.status === "error" && (
+                                        <div className="video-job-status" style={{ color: "#ef4444" }}>
+                                          ⚠ {smartUploads[item._id].message}
+                                        </div>
+                                      )}
 
                                       {/* ── Inline job status message ── */}
                                       {videoJobs[item._id]?.status === "polling" && (
