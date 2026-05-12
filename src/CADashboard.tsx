@@ -374,7 +374,7 @@ const CADashboard: React.FC = () => {
       const payload = {
         pdf_s3_url:   item.pdf_url,
         dashboard_id: dashboardId,
-        platform: "cs"
+        platform: "cs",
         use_gemini:   true,
         use_openai:   true,
       };
