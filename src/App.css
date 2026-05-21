@@ -5981,3 +5981,77 @@ body {
 .chat-bubble-content.markdown-body hr {
   margin: 0.4em 0;
 }
+/* =============================================
+   ADD THESE RULES TO YOUR App.css
+   (paste anywhere near the bottom)
+   ============================================= */
+
+/* ── Toast slide-in animation ── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)     scale(1);    }
+}
+
+/* ── Mobile PDF viewer — make multimedia-content scrollable ──
+   On mobile the content area must fill height and allow scroll  */
+@media (max-width: 768px) {
+  .multimedia-container {
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .multimedia-modal {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  /* PDF object/iframe must fill the available area */
+  .multimedia-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The object tag fills its parent */
+  .multimedia-content object {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+}
+
+/* ── PDF loading / error states ── */
+.pdf-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 200px;
+  width: 100%;
+  background: #f9fafb;
+}
+
+.pdf-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  width: 100%;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+}
+
+/* ── Smart PDF guard: dimmed "locked" create-video btn ── */
+.resource-action-create-video.resource-action-locked {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+}
