@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import api from "./api";
 import "./App.css";
 
@@ -6,13 +6,8 @@ type Level = "Foundation" | "Intermediate" | "Final" | "Self Paced" | "Others";
 
 const DEFAULT_VIDEO_URL = "https://youtu.be/76UUB7Vv8s8?si=7NlDSfqlON-SVpIi";
 
-// External video service base URL — set VITE_VIDEO_API_URL in your .env
 const VIDEO_API_BASE = (import.meta as any).env?.VITE_VIDEO_API_URL ?? "http://127.0.0.1:8081";
-
-// How often to poll for job completion (ms)
 const POLL_INTERVAL_MS = 20000;
-
-// Max polling time before giving up (ms) — 15 minutes
 const POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
 const LEVEL_META: Record<Level, { icon: string; desc: string; color: string }> = {
@@ -35,7 +30,7 @@ interface PDFItem {
   unit?: string;
   video_url?: string;
   audio_url?: string;
-  simplified_pdf_url?: string;          // ← Smart PDF S3 URL from MongoDB
+  simplified_pdf_url?: string;
   video_created_at?: string;
   status?: "pending" | "processing" | "completed" | "failed";
 }
@@ -55,10 +50,16 @@ interface VideoJob {
   message?: string;
 }
 
-// ← NEW: Smart PDF upload state per item _id
 interface SmartUpload {
   status: "idle" | "uploading" | "success" | "error";
   message?: string;
+}
+
+// ── NEW: simple toast ──────────────────────────────────────
+interface Toast {
+  id: number;
+  message: string;
+  type: "info" | "warning" | "error" | "success";
 }
 
 // ============================================================
@@ -77,25 +78,123 @@ function sortKeys(keys: string[]): string[] {
   });
 }
 
+// ── Detect mobile (narrow viewport or touch) ─────────────────
+function isMobileDevice(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    (window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent))
+  );
+}
+
+// ============================================================
+// TOAST HOOK
+// ============================================================
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const counterRef = useRef(0);
+
+  const showToast = useCallback(
+    (message: string, type: Toast["type"] = "info", duration = 4000) => {
+      const id = ++counterRef.current;
+      setToasts((prev) => [...prev, { id, message, type }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+    },
+    []
+  );
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  return { toasts, showToast, dismissToast };
+}
+
+// ============================================================
+// TOAST RENDERER
+// ============================================================
+
+const TOAST_COLORS: Record<Toast["type"], { bg: string; border: string; color: string; icon: string }> = {
+  info:    { bg: "#eff6ff", border: "#bfdbfe", color: "#1e40af", icon: "ℹ️" },
+  warning: { bg: "#fffbeb", border: "#fde68a", color: "#92400e", icon: "⚠️" },
+  error:   { bg: "#fef2f2", border: "#fecaca", color: "#991b1b", icon: "❌" },
+  success: { bg: "#f0fdf4", border: "#bbf7d0", color: "#166534", icon: "✅" },
+};
+
+const ToastContainer: React.FC<{
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}> = ({ toasts, onDismiss }) => {
+  if (toasts.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: 74,
+        right: 20,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: 360,
+        width: "calc(100vw - 40px)",
+      }}
+    >
+      {toasts.map((t) => {
+        const c = TOAST_COLORS[t.type];
+        return (
+          <div
+            key={t.id}
+            style={{
+              background: c.bg,
+              border: `1.5px solid ${c.border}`,
+              color: c.color,
+              borderRadius: 10,
+              padding: "12px 14px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 10,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+              animation: "toastIn 0.25s ease",
+            }}
+          >
+            <span style={{ fontSize: "1rem", flexShrink: 0, marginTop: 1 }}>{c.icon}</span>
+            <span style={{ flex: 1, fontSize: "0.875rem", fontWeight: 500, lineHeight: 1.45 }}>
+              {t.message}
+            </span>
+            <button
+              onClick={() => onDismiss(t.id)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "inherit",
+                fontSize: "0.9rem",
+                opacity: 0.6,
+                padding: "0 2px",
+                flexShrink: 0,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 // ============================================================
 // PDF BLOB HOOK
 // ============================================================
 
-/**
- * Fetches a PDF via the authenticated `api` instance (so the JWT token is
- * included automatically), converts it to a blob: URL, and returns it.
- * The blob URL is revoked when the component using it unmounts or the
- * source URL changes — no memory leaks.
- *
- * Why blob: instead of a proxy iframe src?
- *   iframes cannot send custom headers (like Authorization). If we point the
- *   iframe directly at the proxy endpoint, the request arrives unauthenticated,
- *   FastAPI raises 401, and the SPA intercepts it and redirects to the dashboard.
- *   Fetching via JS lets us attach the token, then hand a plain blob: URL to
- *   the iframe — no auth issues, no redirect, renders inline every time.
- */
-function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loading: boolean; error: string | null } {
+function usePdfBlobUrl(url: string | undefined): {
+  blobUrl: string | null;
+  loading: boolean;
+  error: string | null;
+} {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -110,14 +209,13 @@ function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loadi
 
     (async () => {
       try {
-        // Use the existing `api` axios instance — it already carries the JWT token
         const res = await api.get("/dashboard/pdf-proxy", {
           params:       { url },
           responseType: "blob",
         });
         if (revoked) return;
-        const blob    = new Blob([res.data], { type: "application/pdf" });
-        const objUrl  = URL.createObjectURL(blob);
+        const blob   = new Blob([res.data], { type: "application/pdf" });
+        const objUrl = URL.createObjectURL(blob);
         setBlobUrl(objUrl);
       } catch (err: any) {
         if (!revoked) setError(err?.message ?? "Failed to load PDF");
@@ -128,7 +226,6 @@ function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loadi
 
     return () => {
       revoked = true;
-      // Revoke the old blob URL to free memory
       setBlobUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return null; });
     };
   }, [url]);
@@ -137,11 +234,7 @@ function usePdfBlobUrl(url: string | undefined): { blobUrl: string | null; loadi
 }
 
 // ============================================================
-// MAIN COMPONENT
-// ============================================================
-
-// ============================================================
-// PDF VIEWER COMPONENT  (uses blob hook internally)
+// PDF VIEWER COMPONENT
 // ============================================================
 
 interface PdfViewerProps {
@@ -150,33 +243,123 @@ interface PdfViewerProps {
   className?: string;
 }
 
-const PdfViewer: React.FC<PdfViewerProps> = ({ url, title, className = "multimedia-frame pdf-frame" }) => {
+const PdfViewer: React.FC<PdfViewerProps> = ({
+  url,
+  title,
+  className = "multimedia-frame pdf-frame",
+}) => {
   const { blobUrl, loading, error } = usePdfBlobUrl(url);
+  const [mobile] = useState(() => isMobileDevice());
 
-  if (loading) return (
-    <div className="pdf-loading-state">
-      <div className="loader" />
-      <span className="loader-text">Loading PDF…</span>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="pdf-loading-state" style={loadingStyle}>
+        <div className="loader" />
+        <span className="loader-text">Loading PDF…</span>
+      </div>
+    );
 
-  if (error) return (
-    <div className="pdf-error-state">
-      <span>⚠️ Could not load PDF: {error}</span>
-    </div>
-  );
+  if (error)
+    return (
+      <div style={errorWrapStyle}>
+        <span style={{ fontSize: "2rem" }}>⚠️</span>
+        <p style={{ fontWeight: 600, color: "#991b1b" }}>Could not load PDF</p>
+        <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>{error}</p>
+        {/* Always offer a direct-open link as fallback */}
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={openLinkStyle}
+        >
+          Open PDF in new tab ↗
+        </a>
+      </div>
+    );
 
   if (!blobUrl) return null;
 
+  // ── MOBILE: browsers (especially iOS Safari) block iframe PDFs.
+  //    Instead render a full-screen friendly view with an open button
+  //    + an <object> fallback which works on most Android browsers.
+  if (mobile) {
+    return (
+      <div style={mobilePdfWrapStyle}>
+        {/* Primary: <object> works on Android Chrome */}
+        <object
+          data={blobUrl}
+          type="application/pdf"
+          style={{ width: "100%", height: "100%", border: "none" }}
+        >
+          {/* Fallback for iOS Safari and other blockers */}
+          <div style={mobileFallbackStyle}>
+            <span style={{ fontSize: "3rem" }}>📄</span>
+            <p style={{ fontWeight: 700, fontSize: "1rem", color: "#1a2744" }}>{title}</p>
+            <p style={{ fontSize: "0.85rem", color: "#6b7280", textAlign: "center", maxWidth: 280 }}>
+              Your browser does not support inline PDF viewing.
+              Tap the button below to open the PDF.
+            </p>
+            <a
+              href={blobUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={openLinkStyle}
+            >
+              Open PDF ↗
+            </a>
+            <a
+              href={blobUrl}
+              download={`${title.replace(/[^a-z0-9]/gi, "_")}.pdf`}
+              style={{ ...openLinkStyle, background: "#1a2744", color: "#fff", borderColor: "#1a2744", marginTop: 6 }}
+            >
+              ⬇ Download PDF
+            </a>
+          </div>
+        </object>
+      </div>
+    );
+  }
+
+  // ── DESKTOP: standard iframe ──────────────────────────────
   return (
     <iframe
-      src={blobUrl}
+      src={`${blobUrl}#toolbar=1&view=FitH`}
       title={title}
       className={className}
       allowFullScreen
     />
   );
 };
+
+// small style objects to keep JSX clean
+const loadingStyle: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center",
+  justifyContent: "center", gap: 14, minHeight: 200, width: "100%",
+};
+const errorWrapStyle: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center",
+  justifyContent: "center", gap: 12, padding: 40, textAlign: "center", width: "100%",
+};
+const mobilePdfWrapStyle: React.CSSProperties = {
+  width: "100%", height: "100%", overflow: "hidden",
+  display: "flex", flexDirection: "column",
+};
+const mobileFallbackStyle: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "center",
+  justifyContent: "center", gap: 14, padding: 40, textAlign: "center",
+  background: "#f9fafb", height: "100%", width: "100%",
+};
+const openLinkStyle: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "10px 22px", background: "#c9a84c", color: "#1a2744",
+  borderRadius: 8, fontWeight: 700, fontSize: "0.9rem",
+  textDecoration: "none", border: "2px solid #c9a84c",
+  marginTop: 4, transition: "all 0.2s",
+};
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
 const CADashboard: React.FC = () => {
   const [selected, setSelected]       = useState<Level | null>(null);
@@ -185,30 +368,25 @@ const CADashboard: React.FC = () => {
   const [openModules, setOpenModules] = useState<Record<string, boolean>>({});
   const [treeLoading, setTreeLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAdmin, setIsAdmin]         = useState(false);
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [videoJobs, setVideoJobs]     = useState<Record<string, VideoJob>>({});
+  const videoJobsRef                  = useRef<Record<string, VideoJob>>({});
+  videoJobsRef.current                = videoJobs;
 
-  // Maps dashboardId → active VideoJob
-  const [videoJobs, setVideoJobs] = useState<Record<string, VideoJob>>({});
-
-  // Keep a ref so polling callbacks always see latest jobs map
-  const videoJobsRef = useRef<Record<string, VideoJob>>({});
-  videoJobsRef.current = videoJobs;
-
-  // Polling interval handles keyed by dashboardId
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
-  // ← NEW: Smart PDF upload state + hidden file input refs (keyed by item._id)
   const [smartUploads, setSmartUploads] = useState<Record<string, SmartUpload>>({});
   const smartPdfRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // ── Toast ────────────────────────────────────────────────
+  const { toasts, showToast, dismissToast } = useToast();
+
   // ============================================================
-  // CLEANUP on unmount
+  // CLEANUP
   // ============================================================
   useEffect(() => {
-    return () => {
-      Object.values(pollTimers.current).forEach(clearInterval);
-    };
+    return () => { Object.values(pollTimers.current).forEach(clearInterval); };
   }, []);
 
   // ============================================================
@@ -259,8 +437,6 @@ const CADashboard: React.FC = () => {
         }
         return prev;
       });
-
-      // Also patch open viewer if it matches
       setViewer((v) =>
         v && v.item._id === dashboardId ? { ...v, item: { ...v.item, ...patch } } : v
       );
@@ -269,22 +445,16 @@ const CADashboard: React.FC = () => {
   );
 
   // ============================================================
-  // POLLING — checks our own backend for updated video_url
+  // POLLING
   // ============================================================
   const startPolling = useCallback(
-    (dashboardId: string, jobId: string) => {
-      // Clear any existing timer for this id
-      if (pollTimers.current[dashboardId]) {
-        clearInterval(pollTimers.current[dashboardId]);
-      }
+    (dashboardId: string, _jobId: string) => {
+      if (pollTimers.current[dashboardId]) clearInterval(pollTimers.current[dashboardId]);
 
       const startedAt = Date.now();
 
       const timer = setInterval(async () => {
-        const elapsed = Date.now() - startedAt;
-
-        // Timeout guard
-        if (elapsed > POLL_TIMEOUT_MS) {
+        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
           clearInterval(pollTimers.current[dashboardId]);
           delete pollTimers.current[dashboardId];
           setVideoJobs((prev) => ({
@@ -296,36 +466,24 @@ const CADashboard: React.FC = () => {
         }
 
         try {
-          // Poll our FastAPI backend which has the updated Mongo doc
           const res = await api.get(`/dashboard/item/${dashboardId}`);
           const item: PDFItem = res.data;
 
-          // Accept completion if video_url is present — status field lives on the
-          // job document and may or may not be written back to the dashboard doc.
           if (item.video_url && (item.status === "completed" || !item.status)) {
-            // 🎉 Video ready
             clearInterval(pollTimers.current[dashboardId]);
             delete pollTimers.current[dashboardId];
-
-            // Patch tree FIRST so item.status is "completed" before
-            // videoJobs triggers a re-render — prevents the "processing" flicker
             patchTreeItem(dashboardId, {
-              video_url:     item.video_url,
-              audio_url:     item.audio_url,
+              video_url:          item.video_url,
+              audio_url:          item.audio_url,
               simplified_pdf_url: item.simplified_pdf_url,
-              status:     "completed",
-              video_created_at: item.video_created_at,
+              status:             "completed",
+              video_created_at:   item.video_created_at,
             });
-
-            // Update job status AFTER tree is patched
             setVideoJobs((prev) => ({
               ...prev,
-              [dashboardId]: {
-                ...prev[dashboardId],
-                status: "completed",
-                message: "Video ready!",
-              },
+              [dashboardId]: { ...prev[dashboardId], status: "completed", message: "Video ready!" },
             }));
+            showToast("🎬 Video is ready!", "success");
           } else if (item.status === "failed") {
             clearInterval(pollTimers.current[dashboardId]);
             delete pollTimers.current[dashboardId];
@@ -335,38 +493,40 @@ const CADashboard: React.FC = () => {
             }));
             patchTreeItem(dashboardId, { status: "failed" });
           }
-          // else still processing — keep polling
         } catch (err) {
-          console.warn("[poll] Error fetching dashboard item:", err);
-          // Don't stop polling on transient errors
+          console.warn("[poll] Error:", err);
         }
       }, POLL_INTERVAL_MS);
 
       pollTimers.current[dashboardId] = timer;
     },
-    [patchTreeItem]
+    [patchTreeItem, showToast]
   );
 
   // ============================================================
-  // CREATE / RECREATE VIDEO — calls external API, then starts polling
+  // CREATE VIDEO — GUARD: Smart PDF must exist first
   // ============================================================
   const handleCreateVideo = async (item: PDFItem) => {
     const dashboardId = item._id;
 
-    // Prevent duplicate jobs (allow re-creation even if completed)
+    // ── TASK 1: block if no smart PDF ───────────────────────
+    if (!item.simplified_pdf_url) {
+      showToast(
+        "Please upload a Smart PDF first before creating a video.",
+        "warning",
+        5000
+      );
+      return;
+    }
+
     if (videoJobs[dashboardId]?.status === "polling") return;
 
-    // Optimistically mark as processing in tree
     patchTreeItem(dashboardId, { status: "processing" });
-
     setVideoJobs((prev) => ({
       ...prev,
       [dashboardId]: {
-        jobId:     "",
-        dashboardId,
-        startedAt: Date.now(),
-        status:    "polling",
-        message:   "Submitting job…",
+        jobId: "", dashboardId, startedAt: Date.now(),
+        status: "polling", message: "Submitting job…",
       },
     }));
 
@@ -374,7 +534,7 @@ const CADashboard: React.FC = () => {
       const payload = {
         pdf_s3_url:   item.pdf_url,
         dashboard_id: dashboardId,
-        platform: "ca",
+        platform:     "ca",
         use_gemini:   true,
         use_openai:   true,
       };
@@ -393,8 +553,6 @@ const CADashboard: React.FC = () => {
       const data: { job_id: string; dashboard_id: string; status: string; message: string } =
         await res.json();
 
-      console.log("[video] Job submitted:", data);
-
       setVideoJobs((prev) => ({
         ...prev,
         [dashboardId]: {
@@ -406,7 +564,6 @@ const CADashboard: React.FC = () => {
         },
       }));
 
-      // Begin polling FastAPI backend for completion
       startPolling(dashboardId, data.job_id);
     } catch (err: any) {
       console.error("[video] Job submission failed:", err);
@@ -419,8 +576,8 @@ const CADashboard: React.FC = () => {
         },
       }));
       patchTreeItem(dashboardId, { status: "failed" });
+      showToast("Video job submission failed. Please try again.", "error");
 
-      // Auto-clear failed status after 5 s so button resets
       setTimeout(() => {
         setVideoJobs((prev) => {
           const next = { ...prev };
@@ -433,14 +590,13 @@ const CADashboard: React.FC = () => {
   };
 
   // ============================================================
-  // ← NEW: SMART PDF UPLOAD HANDLER (Admin only)
+  // SMART PDF UPLOAD
   // ============================================================
   const handleSmartPdfSelect = async (
     e: React.ChangeEvent<HTMLInputElement>,
     item: PDFItem,
   ) => {
     const file = e.target.files?.[0];
-    // Reset input so re-selecting the same file fires onChange again
     if (e.target) e.target.value = "";
     if (!file) return;
 
@@ -463,22 +619,21 @@ const CADashboard: React.FC = () => {
       );
 
       const { simplified_pdf_url } = res.data as { simplified_pdf_url: string };
-
-      // Patch tree + open viewer immediately — no page refresh needed
       patchTreeItem(id, { simplified_pdf_url });
 
       setSmartUploads((prev) => ({
         ...prev,
         [id]: { status: "success", message: "Smart PDF saved!" },
       }));
+      showToast("🧠 Smart PDF uploaded successfully!", "success");
 
-      // Auto-reset after 4 s
       setTimeout(() => {
         setSmartUploads((prev) => ({ ...prev, [id]: { status: "idle" } }));
       }, 4000);
     } catch (err: any) {
       const detail = err?.response?.data?.detail ?? "Upload failed. Please try again.";
       setSmartUploads((prev) => ({ ...prev, [id]: { status: "error", message: detail } }));
+      showToast(`Smart PDF upload failed: ${detail}`, "error");
       setTimeout(() => {
         setSmartUploads((prev) => ({ ...prev, [id]: { status: "idle" } }));
       }, 4000);
@@ -486,7 +641,7 @@ const CADashboard: React.FC = () => {
   };
 
   // ============================================================
-  // TREE NAVIGATION HANDLERS
+  // NAVIGATION HELPERS
   // ============================================================
   const toggleModule = (key: string) =>
     setOpenModules((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -515,24 +670,19 @@ const CADashboard: React.FC = () => {
 
   const closeViewer = () => setViewer(null);
 
-  // ── Download audio as a file via authenticated fetch ──
   const handleDownloadAudio = async (item: PDFItem) => {
     if (!item.audio_url) return;
     try {
       const res = await api.get("/dashboard/audio-proxy", {
-        params:       { url: item.audio_url },
-        responseType: "blob",
+        params: { url: item.audio_url }, responseType: "blob",
       });
       const blob     = new Blob([res.data], { type: "audio/mpeg" });
       const objUrl   = URL.createObjectURL(blob);
       const anchor   = document.createElement("a");
       const filename = item.title.replace(/[^a-z0-9]/gi, "_").toLowerCase() + "_audio.mp3";
-      anchor.href     = objUrl;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      URL.revokeObjectURL(objUrl);
+      anchor.href = objUrl; anchor.download = filename;
+      document.body.appendChild(anchor); anchor.click();
+      document.body.removeChild(anchor); URL.revokeObjectURL(objUrl);
     } catch (err: any) {
       console.error("[download audio]", err);
       alert("Could not download audio. Please try again.");
@@ -573,16 +723,8 @@ const CADashboard: React.FC = () => {
   const renderVideoButton = (item: PDFItem) => {
     const dashboardId = item._id;
     const job         = videoJobs[dashboardId];
+    const hasVideo    = !!item.video_url || job?.status === "completed";
 
-    // "has video" = video_url is populated in DB (job is done) OR the in-flight
-    // job just completed. We do NOT check item.status here because on initial tree
-    // load the dashboard doc may not carry the job's status field — only video_url
-    // is reliably written back to the dashboard collection by the backend.
-    const hasVideo = !!item.video_url || job?.status === "completed";
-
-    // ── 1. Video exists (completed) — highest priority check ──
-    // Must come BEFORE the processing check so a completed job never
-    // renders the spinner due to stale item.status in the tree.
     if (hasVideo) {
       return (
         <>
@@ -593,8 +735,6 @@ const CADashboard: React.FC = () => {
           >
             ▶ Watch Video
           </button>
-
-          {/* Admin can regenerate even after completion */}
           {isAdmin && (
             <button
               className="resource-action-btn resource-action-recreate-video"
@@ -608,7 +748,6 @@ const CADashboard: React.FC = () => {
       );
     }
 
-    // ── 2. Actively polling / processing ──
     if (job?.status === "polling" || item.status === "processing") {
       return (
         <button
@@ -622,7 +761,6 @@ const CADashboard: React.FC = () => {
       );
     }
 
-    // ── 3. Failed / timeout ──
     if (job?.status === "failed" || job?.status === "timeout") {
       return (
         <button
@@ -635,15 +773,25 @@ const CADashboard: React.FC = () => {
       );
     }
 
-    // ── 4. Admin only: no video yet → Create button ──
+    // ── Admin: show Create Video button (will be blocked by guard if no Smart PDF) ──
     if (isAdmin && !item.video_url) {
+      const hasSmartPdf = !!item.simplified_pdf_url;
       return (
         <button
           className="resource-action-btn resource-action-create-video"
           onClick={() => handleCreateVideo(item)}
-          title="Generate AI video lecture (Admin only)"
+          title={
+            hasSmartPdf
+              ? "Generate AI video lecture (Admin only)"
+              : "Upload Smart PDF first to enable video creation"
+          }
+          style={
+            !hasSmartPdf
+              ? { opacity: 0.55, cursor: "not-allowed", filter: "grayscale(0.4)" }
+              : undefined
+          }
         >
-          🤖 Create Video
+          {hasSmartPdf ? "🤖 Create Video" : "🔒 Create Video"}
         </button>
       );
     }
@@ -652,7 +800,7 @@ const CADashboard: React.FC = () => {
   };
 
   // ============================================================
-  // ← NEW: SMART PDF UPLOAD BUTTON RENDERER (Admin only)
+  // SMART PDF UPLOAD BUTTON RENDERER
   // ============================================================
   const renderSmartPdfUploadButton = (item: PDFItem) => {
     if (!isAdmin) return null;
@@ -675,7 +823,6 @@ const CADashboard: React.FC = () => {
 
     return (
       <>
-        {/* One hidden file input per item — triggered programmatically by the button */}
         <input
           ref={(el) => { smartPdfRefs.current[id] = el; }}
           type="file"
@@ -719,6 +866,9 @@ const CADashboard: React.FC = () => {
   // ============================================================
   return (
     <div className="ca-dashboard">
+
+      {/* ── TOAST CONTAINER ── */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* ── HEADER ── */}
       <div className="ca-header">
@@ -803,8 +953,6 @@ const CADashboard: React.FC = () => {
       {/* ── LEVEL CONTENT ── */}
       {selected && (
         <div className="level-content">
-
-          {/* Toolbar */}
           <div className="level-toolbar">
             <button className="back-btn" onClick={goBack}>← All Levels</button>
             <div className="level-toolbar-meta">
@@ -827,7 +975,6 @@ const CADashboard: React.FC = () => {
             <div className="premium-tree">
               {sortKeys(Object.keys(tree[selected])).map((subject) => (
                 <div key={subject} className="subject-card">
-
                   <div className="subject-card-header">
                     <h3>{subject}</h3>
                     <span className="subject-module-count">
@@ -883,8 +1030,6 @@ const CADashboard: React.FC = () => {
                                       </button>
 
                                       <div className="resource-actions">
-
-                                        {/* ── Read PDF ── */}
                                         <button
                                           className="resource-action-btn resource-action-read"
                                           onClick={() => openViewer(item, "pdf")}
@@ -893,7 +1038,6 @@ const CADashboard: React.FC = () => {
                                           📖 Read
                                         </button>
 
-                                        {/* ── Smart PDF viewer (shown to all users when URL exists) ── */}
                                         {item.simplified_pdf_url && (
                                           <button
                                             className="resource-action-btn resource-action-smart-pdf"
@@ -904,10 +1048,8 @@ const CADashboard: React.FC = () => {
                                           </button>
                                         )}
 
-                                        {/* ── Video button (all states via renderVideoButton) ── */}
                                         {renderVideoButton(item)}
 
-                                        {/* ── Audio (from MongoDB audio_url) ── */}
                                         {item.audio_url && (
                                           <button
                                             className="resource-action-btn resource-action-audio"
@@ -918,7 +1060,6 @@ const CADashboard: React.FC = () => {
                                           </button>
                                         )}
 
-                                        {/* ── Ask AI ── */}
                                         <button
                                           className="resource-action-btn resource-action-chat"
                                           onClick={() => (window as any).goChat?.()}
@@ -927,12 +1068,10 @@ const CADashboard: React.FC = () => {
                                           💬 Ask AI
                                         </button>
 
-                                        {/* ── Upload Smart PDF (Admin only) ── */}
                                         {renderSmartPdfUploadButton(item)}
-
                                       </div>
 
-                                      {/* ── Smart PDF upload status messages ── */}
+                                      {/* Status messages */}
                                       {smartUploads[item._id]?.status === "uploading" && (
                                         <div className="video-job-status" style={{ color: "#a78bfa" }}>
                                           <span className="spinner-mini" />
@@ -944,8 +1083,6 @@ const CADashboard: React.FC = () => {
                                           ⚠ {smartUploads[item._id].message}
                                         </div>
                                       )}
-
-                                      {/* ── Inline job status message ── */}
                                       {videoJobs[item._id]?.status === "polling" && (
                                         <div className="video-job-status">
                                           <span className="spinner-mini" />
@@ -1005,7 +1142,6 @@ const CADashboard: React.FC = () => {
               </div>
 
               <div className="multimedia-header-actions">
-                {/* Switch to PDF */}
                 {viewer.item.pdf_url && viewer.type !== "pdf" && (
                   <button
                     className="resource-action-btn resource-action-read"
@@ -1014,8 +1150,6 @@ const CADashboard: React.FC = () => {
                     📖 Read PDF
                   </button>
                 )}
-
-                {/* Switch to Smart PDF */}
                 {viewer.item.simplified_pdf_url && viewer.type !== "smart_pdf" && (
                   <button
                     className="resource-action-btn resource-action-smart-pdf"
@@ -1024,8 +1158,6 @@ const CADashboard: React.FC = () => {
                     🧠 Smart PDF
                   </button>
                 )}
-
-                {/* Switch to Video */}
                 {viewer.item.video_url && viewer.type !== "video" && (
                   <button
                     className="resource-action-btn resource-action-video"
@@ -1034,8 +1166,6 @@ const CADashboard: React.FC = () => {
                     🎬 Watch Video
                   </button>
                 )}
-
-                {/* Switch to Audio */}
                 {viewer.item.audio_url && viewer.type !== "audio" && (
                   <button
                     className="resource-action-btn resource-action-audio"
@@ -1044,7 +1174,6 @@ const CADashboard: React.FC = () => {
                     🎵 Audio
                   </button>
                 )}
-
                 <button
                   className="resource-action-btn resource-action-chat"
                   onClick={() => { closeViewer(); (window as any).goChat?.(); }}
@@ -1058,15 +1187,12 @@ const CADashboard: React.FC = () => {
             </div>
 
             <div className="multimedia-content">
-              {/* ── PDF Viewer — fetched with auth token, rendered as blob URL ── */}
+              {/* PDF */}
               {viewer.type === "pdf" && (
-                <PdfViewer
-                  url={viewer.item.pdf_url}
-                  title={viewer.item.title}
-                />
+                <PdfViewer url={viewer.item.pdf_url} title={viewer.item.title} />
               )}
 
-              {/* ── Smart PDF Viewer — fetched with auth token, rendered as blob URL ── */}
+              {/* Smart PDF */}
               {viewer.type === "smart_pdf" && viewer.item.simplified_pdf_url && (
                 <PdfViewer
                   url={viewer.item.simplified_pdf_url}
@@ -1074,7 +1200,7 @@ const CADashboard: React.FC = () => {
                 />
               )}
 
-              {/* ── Video Viewer ── */}
+              {/* Video */}
               {viewer.type === "video" && viewer.item.video_url && (
                 <video
                   controls
@@ -1082,13 +1208,14 @@ const CADashboard: React.FC = () => {
                   className="multimedia-frame video-frame"
                   controlsList="nodownload"
                   key={viewer.item.video_url}
+                  playsInline          // ← important for iOS
                 >
                   <source src={viewer.item.video_url} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               )}
 
-              {/* ── Audio Viewer (S3 URL from MongoDB) ── */}
+              {/* Audio */}
               {viewer.type === "audio" && viewer.item.audio_url && (
                 <div className="audio-player-container">
                   <audio
@@ -1097,6 +1224,7 @@ const CADashboard: React.FC = () => {
                     className="audio-player"
                     controlsList="nodownload"
                     key={viewer.item.audio_url}
+                    playsInline          // ← important for iOS
                   >
                     <source src={viewer.item.audio_url} type="audio/mpeg" />
                     Your browser does not support the audio element.
