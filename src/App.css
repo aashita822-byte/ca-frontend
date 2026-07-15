@@ -5981,6 +5981,7 @@ body {
 .chat-bubble-content.markdown-body hr {
   margin: 0.4em 0;
 }
+
 /* =============================================
    ADD THESE RULES TO YOUR App.css
    (paste anywhere near the bottom)
@@ -6054,4 +6055,94 @@ body {
   opacity: 0.5;
   filter: grayscale(0.5);
   cursor: not-allowed;
+}
+
+/* =============================================
+   KATEX MATH — RESPONSIVE + COMPACT
+   ============================================= */
+.markdown-body .katex-display {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body .katex-display > .katex {
+  white-space: nowrap;
+}
+
+.markdown-body .katex {
+  font-size: 1.05em;
+}
+
+.markdown-body p .katex {
+  font-size: 1em;
+}
+
+/* tighten list spacing further when items are short (formula "Where:" lists) */
+.chat-bubble-content.markdown-body ul,
+.chat-bubble-content.markdown-body ol {
+  margin: 0.15em 0 0.3em 0;
+}
+
+.chat-bubble-content.markdown-body li {
+  margin-bottom: 0.1em;
+}
+
+@media (max-width: 480px) {
+  .markdown-body .katex-display {
+    padding: 8px 10px;
+    font-size: 0.9em;
+  }
+  .markdown-body .katex {
+    font-size: 0.95em;
+  }
+}/* =============================================
+   KATEX MATH — RESPONSIVE + COMPACT
+   ============================================= */
+.markdown-body .katex-display {
+  margin: 0.5em 0;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-body .katex-display > .katex {
+  white-space: nowrap;
+}
+
+.markdown-body .katex {
+  font-size: 1.05em;
+}
+
+.markdown-body p .katex {
+  font-size: 1em;
+}
+
+/* tighten list spacing further when items are short (formula "Where:" lists) */
+.chat-bubble-content.markdown-body ul,
+.chat-bubble-content.markdown-body ol {
+  margin: 0.15em 0 0.3em 0;
+}
+
+.chat-bubble-content.markdown-body li {
+  margin-bottom: 0.1em;
+}
+
+@media (max-width: 480px) {
+  .markdown-body .katex-display {
+    padding: 8px 10px;
+    font-size: 0.9em;
+  }
+  .markdown-body .katex {
+    font-size: 0.95em;
+  }
 }
