@@ -3,6 +3,9 @@ import api from "./api";
 import "./App.css";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 /* ============================================================
    TYPES
@@ -91,6 +94,36 @@ const stripMarkdown = (text: string): string => {
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+};
+
+/**
+ * Prepares raw assistant markdown for rendering:
+ *  1. Converts \( ... \) and \[ ... \] LaTeX delimiters (common in LLM output)
+ *     into $ ... $ / $$ ... $$ so remark-math + rehype-katex can render them
+ *     as real formulas instead of raw text.
+ *  2. Collapses excess blank lines / loose list spacing that was inflating
+ *     the visual height of chat answers.
+ */
+const prepareForMarkdown = (text: string): string => {
+  if (!text) return text;
+
+  let out = text
+    // block math: \[ ... \]  ->  $$ ... $$
+    .replace(/\\\[([\s\S]+?)\\\]/g, (_m, expr) => `\n\n$$${expr.trim()}$$\n\n`)
+    // inline math: \( ... \) -> $ ... $
+    .replace(/\\\(([\s\S]+?)\\\)/g, (_m, expr) => `$${expr.trim()}$`);
+
+  out = out
+    // collapse 3+ newlines down to a single blank line
+    .replace(/\n{3,}/g, "\n\n")
+    // remove blank line(s) directly before a bullet/numbered list item
+    // (keeps lists "tight" instead of loose/paragraph-wrapped)
+    .replace(/\n{2,}(\s*(?:[-*+]|\d+\.)\s)/g, "\n$1")
+    // trim trailing whitespace on each line
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+
+  return out;
 };
 
 /** Read file as base64 data URL */
@@ -768,8 +801,11 @@ const Chat: React.FC = () => {
                   </div>
                 ) : (
                   <div className="chat-bubble-content markdown-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {m.content}
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {prepareForMarkdown(m.content)}
                     </ReactMarkdown>
                   </div>
                 )}
